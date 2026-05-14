@@ -1,11 +1,15 @@
+const SUPABASE_URL = "https://psdtmyoouqsldxskncth.supabase.co";
+const SUPABASE_KEY = "sb_publishable_tjTcbQ6_4Sc2xmOPH9eSbA_cQd4jLZf";
 const STORAGE_KEY = "rrhh-central-state";
 
-const state = loadState();
+const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
+const state = { employees: [], payrolls: [], certificates: [], company: null, remoteReady: false };
 
 const els = {
   viewTitle: document.querySelector("#viewTitle"),
   navTabs: document.querySelectorAll(".nav-tab"),
   views: document.querySelectorAll(".view"),
+  storageStatus: document.querySelector("#storageStatus"),
   activeEmployeesMetric: document.querySelector("#activeEmployeesMetric"),
   monthlyPayrollMetric: document.querySelector("#monthlyPayrollMetric"),
   vacationDaysMetric: document.querySelector("#vacationDaysMetric"),
@@ -31,17 +35,23 @@ const els = {
   emptyStateTemplate: document.querySelector("#emptyStateTemplate"),
 };
 
-function loadState() {
-  const fallback = { employees: [], payrolls: [], certificates: [] };
+function localState() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || fallback;
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { employees: [], payrolls: [], certificates: [] };
   } catch {
-    return fallback;
+    return { employees: [], payrolls: [], certificates: [] };
   }
 }
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function saveLocalState() {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      employees: state.employees,
+      payrolls: state.payrolls,
+      certificates: state.certificates,
+    }),
+  );
 }
 
 function uid(prefix) {
@@ -63,7 +73,12 @@ function readableDate(value) {
 
 function monthLabel(value) {
   if (!value) return "Sin mes";
-  return new Intl.DateTimeFormat("es-CL", { month: "long", year: "numeric" }).format(new Date(`${value}-02T12:00:00`));
+  const normalized = value.length === 7 ? `${value}-02` : value;
+  return new Intl.DateTimeFormat("es-CL", { month: "long", year: "numeric" }).format(new Date(`${normalized}T12:00:00`));
+}
+
+function monthDate(value) {
+  return `${value}-01`;
 }
 
 function clearNode(node) {
@@ -72,6 +87,10 @@ function clearNode(node) {
 
 function emptyState() {
   return els.emptyStateTemplate.content.cloneNode(true);
+}
+
+function setStatus(message) {
+  if (els.storageStatus) els.storageStatus.textContent = message;
 }
 
 function setView(view) {
@@ -85,6 +104,125 @@ function activeEmployees() {
   return state.employees.filter((employee) => employee.status === "Activo");
 }
 
+function dbEmployee(row) {
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    name: row.full_name,
+    rut: row.rut,
+    role: row.position,
+    department: row.department,
+    startDate: row.start_date,
+    salary: Number(row.base_salary || 0),
+    vacationDays: Number(row.vacation_days || 0),
+    status: row.status,
+  };
+}
+
+function toEmployeeRow(employee) {
+  return {
+    company_id: employee.companyId || state.company?.id || null,
+    full_name: employee.name,
+    rut: employee.rut,
+    position: employee.role,
+    department: employee.department,
+    start_date: employee.startDate,
+    base_salary: employee.salary,
+    vacation_days: employee.vacationDays,
+    status: employee.status,
+  };
+}
+
+function dbPayroll(row) {
+  return {
+    id: row.id,
+    employeeId: row.employee_id,
+    month: row.period_month?.slice(0, 7),
+    taxable: Number(row.taxable_income || 0),
+    nonTaxable: Number(row.non_taxable_income || 0),
+    otherDeductions: Number(row.other_deductions || 0),
+    workedDays: Number(row.worked_days || 0),
+    pension: Number(row.pension_deduction || 0),
+    health: Number(row.health_deduction || 0),
+    unemployment: Number(row.unemployment_deduction || 0),
+    totalDeductions: Number(row.total_deductions || 0),
+    grossPay: Number(row.gross_pay || 0),
+    netPay: Number(row.net_pay || 0),
+    createdAt: row.created_at,
+  };
+}
+
+function toPayrollRow(payroll) {
+  return {
+    employee_id: payroll.employeeId,
+    period_month: monthDate(payroll.month),
+    taxable_income: payroll.taxable,
+    non_taxable_income: payroll.nonTaxable,
+    other_deductions: payroll.otherDeductions,
+    worked_days: payroll.workedDays,
+    pension_deduction: payroll.pension,
+    health_deduction: payroll.health,
+    unemployment_deduction: payroll.unemployment,
+    total_deductions: payroll.totalDeductions,
+    gross_pay: payroll.grossPay,
+    net_pay: payroll.netPay,
+  };
+}
+
+function dbCertificate(row) {
+  return {
+    id: row.id,
+    type: row.type,
+    employeeId: row.employee_id,
+    start: row.start_date,
+    end: row.end_date,
+    notes: row.notes || "",
+    createdAt: row.issued_at,
+  };
+}
+
+function toCertificateRow(certificate) {
+  return {
+    employee_id: certificate.employeeId,
+    type: certificate.type,
+    start_date: certificate.start,
+    end_date: certificate.end,
+    notes: certificate.notes,
+  };
+}
+
+async function loadRemoteState() {
+  if (!supabaseClient) throw new Error("Supabase no está disponible.");
+
+  const [{ data: companies, error: companyError }, { data: employees, error: employeeError }, { data: payrolls, error: payrollError }, { data: certificates, error: certificateError }] =
+    await Promise.all([
+      supabaseClient.from("companies").select("*").order("created_at", { ascending: true }).limit(1),
+      supabaseClient.from("employees").select("*").order("created_at", { ascending: false }),
+      supabaseClient.from("payrolls").select("*").order("created_at", { ascending: false }),
+      supabaseClient.from("certificates").select("*").order("issued_at", { ascending: false }),
+    ]);
+
+  const error = companyError || employeeError || payrollError || certificateError;
+  if (error) throw error;
+
+  state.company = companies?.[0] || null;
+  state.employees = (employees || []).map(dbEmployee);
+  state.payrolls = (payrolls || []).map(dbPayroll);
+  state.certificates = (certificates || []).map(dbCertificate);
+  state.remoteReady = true;
+  setStatus(`Conectado a Supabase${state.company ? ` · ${state.company.name}` : ""}`);
+}
+
+function loadFallbackState(error) {
+  console.error("No se pudo conectar con Supabase:", error);
+  const fallback = localState();
+  state.employees = fallback.employees || [];
+  state.payrolls = fallback.payrolls || [];
+  state.certificates = fallback.certificates || [];
+  state.remoteReady = false;
+  setStatus("Usando respaldo local. Revisa RLS o conexión.");
+}
+
 function renderAll() {
   renderMetrics();
   renderRecentEmployees();
@@ -92,7 +230,7 @@ function renderAll() {
   renderEmployeeOptions();
   renderPayrollDefaults();
   renderPayrolls();
-  saveState();
+  saveLocalState();
 }
 
 function renderMetrics() {
@@ -167,6 +305,7 @@ function renderEmployeeList() {
 
 function renderEmployeeOptions() {
   [els.payrollEmployee, els.certificateEmployee].forEach((select) => {
+    const previousValue = select.value;
     clearNode(select);
     if (!state.employees.length) {
       const option = new Option("Agrega un empleado primero", "", true, true);
@@ -178,13 +317,16 @@ function renderEmployeeOptions() {
     state.employees.forEach((employee) => {
       select.append(new Option(`${employee.name} · ${employee.role}`, employee.id));
     });
+    if (previousValue) select.value = previousValue;
   });
 }
 
 function renderPayrollDefaults() {
   const employee = state.employees.find((item) => item.id === els.payrollEmployee.value) || state.employees[0];
   if (!employee) return;
-  els.payrollTaxable.value = employee.salary;
+  if (!els.payrollTaxable.value || Number(els.payrollTaxable.value) === 0) {
+    els.payrollTaxable.value = employee.salary;
+  }
   if (!els.payrollMonth.value) {
     els.payrollMonth.value = new Date().toISOString().slice(0, 7);
   }
@@ -215,12 +357,13 @@ function renderPayrolls() {
   });
 }
 
-function submitEmployee(event) {
+async function submitEmployee(event) {
   event.preventDefault();
   const form = new FormData(els.employeeForm);
-  const id = document.querySelector("#employeeId").value || uid("emp");
+  const id = document.querySelector("#employeeId").value;
   const employee = {
-    id,
+    id: id || uid("emp"),
+    companyId: state.company?.id || null,
     name: form.get("name").trim(),
     rut: form.get("rut").trim(),
     role: form.get("role").trim(),
@@ -231,15 +374,29 @@ function submitEmployee(event) {
     status: form.get("status"),
   };
 
-  const index = state.employees.findIndex((item) => item.id === id);
-  if (index >= 0) {
-    state.employees[index] = employee;
-  } else {
-    state.employees.unshift(employee);
-  }
+  try {
+    if (state.remoteReady) {
+      const query = id
+        ? supabaseClient.from("employees").update(toEmployeeRow(employee)).eq("id", id).select().single()
+        : supabaseClient.from("employees").insert(toEmployeeRow(employee)).select().single();
+      const { data, error } = await query;
+      if (error) throw error;
+      employee.id = data.id;
+      employee.companyId = data.company_id;
+    }
 
-  resetEmployeeForm();
-  renderAll();
+    const index = state.employees.findIndex((item) => item.id === employee.id);
+    if (index >= 0) {
+      state.employees[index] = employee;
+    } else {
+      state.employees.unshift(employee);
+    }
+
+    resetEmployeeForm();
+    renderAll();
+  } catch (error) {
+    alert(`No se pudo guardar el empleado: ${error.message}`);
+  }
 }
 
 function editEmployee(id) {
@@ -259,13 +416,24 @@ function editEmployee(id) {
   els.cancelEditBtn.classList.remove("hidden");
 }
 
-function deleteEmployee(id) {
+async function deleteEmployee(id) {
   const employee = state.employees.find((item) => item.id === id);
   if (!employee) return;
-  const confirmed = window.confirm(`¿Eliminar a ${employee.name}? También se mantendrán sus liquidaciones históricas.`);
+  const confirmed = window.confirm(`¿Eliminar a ${employee.name}? También se eliminarán sus registros relacionados.`);
   if (!confirmed) return;
-  state.employees = state.employees.filter((item) => item.id !== id);
-  renderAll();
+
+  try {
+    if (state.remoteReady) {
+      const { error } = await supabaseClient.from("employees").delete().eq("id", id);
+      if (error) throw error;
+    }
+    state.employees = state.employees.filter((item) => item.id !== id);
+    state.payrolls = state.payrolls.filter((item) => item.employeeId !== id);
+    state.certificates = state.certificates.filter((item) => item.employeeId !== id);
+    renderAll();
+  } catch (error) {
+    alert(`No se pudo eliminar el empleado: ${error.message}`);
+  }
 }
 
 function resetEmployeeForm() {
@@ -293,7 +461,7 @@ function calculatePayroll(values) {
   return { proportionalTaxable, pension, health, unemployment, totalDeductions, grossPay, netPay };
 }
 
-function submitPayroll(event) {
+async function submitPayroll(event) {
   event.preventDefault();
   if (!state.employees.length) return;
 
@@ -305,16 +473,20 @@ function submitPayroll(event) {
     otherDeductions: Number(document.querySelector("#payrollOtherDeductions").value),
     workedDays: Number(document.querySelector("#payrollWorkedDays").value),
   };
+  const payroll = { id: uid("pay"), createdAt: new Date().toISOString(), ...values, ...calculatePayroll(values) };
 
-  const payroll = {
-    id: uid("pay"),
-    createdAt: new Date().toISOString(),
-    ...values,
-    ...calculatePayroll(values),
-  };
-
-  state.payrolls.unshift(payroll);
-  renderAll();
+  try {
+    if (state.remoteReady) {
+      const { data, error } = await supabaseClient.from("payrolls").insert(toPayrollRow(payroll)).select().single();
+      if (error) throw error;
+      state.payrolls.unshift(dbPayroll(data));
+    } else {
+      state.payrolls.unshift(payroll);
+    }
+    renderAll();
+  } catch (error) {
+    alert(`No se pudo generar la liquidación: ${error.message}`);
+  }
 }
 
 function payrollDocument(payroll) {
@@ -347,12 +519,20 @@ function showPayroll(id) {
   els.certificatePreview.innerHTML = payrollDocument(payroll);
 }
 
-function deletePayroll(id) {
-  state.payrolls = state.payrolls.filter((payroll) => payroll.id !== id);
-  renderAll();
+async function deletePayroll(id) {
+  try {
+    if (state.remoteReady) {
+      const { error } = await supabaseClient.from("payrolls").delete().eq("id", id);
+      if (error) throw error;
+    }
+    state.payrolls = state.payrolls.filter((payroll) => payroll.id !== id);
+    renderAll();
+  } catch (error) {
+    alert(`No se pudo eliminar la liquidación: ${error.message}`);
+  }
 }
 
-function submitCertificate(event) {
+async function submitCertificate(event) {
   event.preventDefault();
   const employee = state.employees.find((item) => item.id === els.certificateEmployee.value);
   if (!employee) return;
@@ -367,9 +547,20 @@ function submitCertificate(event) {
     createdAt: new Date().toISOString(),
   };
 
-  state.certificates.unshift(certificate);
-  els.certificatePreview.innerHTML = certificateDocument(certificate);
-  renderAll();
+  try {
+    if (state.remoteReady) {
+      const { data, error } = await supabaseClient.from("certificates").insert(toCertificateRow(certificate)).select().single();
+      if (error) throw error;
+      state.certificates.unshift(dbCertificate(data));
+      els.certificatePreview.innerHTML = certificateDocument(dbCertificate(data));
+    } else {
+      state.certificates.unshift(certificate);
+      els.certificatePreview.innerHTML = certificateDocument(certificate);
+    }
+    renderAll();
+  } catch (error) {
+    alert(`No se pudo emitir el certificado: ${error.message}`);
+  }
 }
 
 function certificateDocument(certificate) {
@@ -388,12 +579,12 @@ function certificateDocument(certificate) {
   `;
 }
 
-function seedData() {
+async function seedData() {
   if (state.employees.length && !window.confirm("Esto agregará datos de ejemplo a los registros actuales. ¿Continuar?")) return;
 
   const examples = [
     {
-      id: uid("emp"),
+      companyId: state.company?.id || null,
       name: "Camila Araya Soto",
       rut: "12.345.678-9",
       role: "Analista de personas",
@@ -404,7 +595,7 @@ function seedData() {
       status: "Activo",
     },
     {
-      id: uid("emp"),
+      companyId: state.company?.id || null,
       name: "Matías Fuentes Rojas",
       rut: "18.456.111-2",
       role: "Coordinador de operaciones",
@@ -415,7 +606,7 @@ function seedData() {
       status: "Activo",
     },
     {
-      id: uid("emp"),
+      companyId: state.company?.id || null,
       name: "Daniela Morales Vera",
       rut: "16.789.432-1",
       role: "Ejecutiva comercial",
@@ -427,8 +618,18 @@ function seedData() {
     },
   ];
 
-  state.employees.unshift(...examples);
-  renderAll();
+  try {
+    if (state.remoteReady) {
+      const { data, error } = await supabaseClient.from("employees").insert(examples.map(toEmployeeRow)).select();
+      if (error) throw error;
+      state.employees.unshift(...data.map(dbEmployee));
+    } else {
+      state.employees.unshift(...examples.map((employee) => ({ ...employee, id: uid("emp") })));
+    }
+    renderAll();
+  } catch (error) {
+    alert(`No se pudieron cargar los datos de ejemplo: ${error.message}`);
+  }
 }
 
 function exportData() {
@@ -441,6 +642,16 @@ function exportData() {
   URL.revokeObjectURL(url);
 }
 
+async function init() {
+  try {
+    setStatus("Conectando con Supabase...");
+    await loadRemoteState();
+  } catch (error) {
+    loadFallbackState(error);
+  }
+  renderAll();
+}
+
 els.navTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
 document.querySelectorAll("[data-jump]").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.jump));
@@ -449,7 +660,10 @@ document.querySelectorAll("[data-jump]").forEach((button) => {
 els.employeeForm.addEventListener("submit", submitEmployee);
 els.cancelEditBtn.addEventListener("click", resetEmployeeForm);
 els.employeeSearch.addEventListener("input", renderEmployeeList);
-els.payrollEmployee.addEventListener("change", renderPayrollDefaults);
+els.payrollEmployee.addEventListener("change", () => {
+  els.payrollTaxable.value = "";
+  renderPayrollDefaults();
+});
 els.payrollForm.addEventListener("submit", submitPayroll);
 els.certificateForm.addEventListener("submit", submitCertificate);
 els.seedDataBtn.addEventListener("click", seedData);
@@ -477,4 +691,4 @@ els.payrollList.addEventListener("click", (event) => {
   if (deleteId) deletePayroll(deleteId);
 });
 
-renderAll();
+init();
