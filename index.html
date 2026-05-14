@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RRHH Central</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">RH</div>
+          <div>
+            <strong>RRHH Central</strong>
+            <span>Administración interna</span>
+          </div>
+        </div>
+
+        <nav class="nav-tabs" aria-label="Secciones principales">
+          <button class="nav-tab active" type="button" data-view="dashboard">
+            <span aria-hidden="true">⌂</span>
+            Panel
+          </button>
+          <button class="nav-tab" type="button" data-view="employees">
+            <span aria-hidden="true">◧</span>
+            Empleados
+          </button>
+          <button class="nav-tab" type="button" data-view="payroll">
+            <span aria-hidden="true">$</span>
+            Liquidaciones
+          </button>
+          <button class="nav-tab" type="button" data-view="certificates">
+            <span aria-hidden="true">▤</span>
+            Certificados
+          </button>
+        </nav>
+
+        <div class="sidebar-note">
+          <span>Datos guardados localmente en este navegador.</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Sistema de gestión</p>
+            <h1 id="viewTitle">Panel de Recursos Humanos</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-button" type="button" id="seedDataBtn" title="Cargar datos de ejemplo" aria-label="Cargar datos de ejemplo">＋</button>
+            <button class="icon-button" type="button" id="exportDataBtn" title="Exportar datos" aria-label="Exportar datos">⇩</button>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboardView" data-title="Panel de Recursos Humanos">
+          <div class="metrics-grid">
+            <article class="metric">
+              <span>Empleados activos</span>
+              <strong id="activeEmployeesMetric">0</strong>
+            </article>
+            <article class="metric">
+              <span>Planilla mensual estimada</span>
+              <strong id="monthlyPayrollMetric">$0</strong>
+            </article>
+            <article class="metric">
+              <span>Días de vacaciones disponibles</span>
+              <strong id="vacationDaysMetric">0</strong>
+            </article>
+            <article class="metric">
+              <span>Última liquidación</span>
+              <strong id="lastPayrollMetric">Sin registros</strong>
+            </article>
+          </div>
+
+          <div class="dashboard-layout">
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Equipo</p>
+                  <h2>Empleados recientes</h2>
+                </div>
+                <button class="text-button" type="button" data-jump="employees">Gestionar</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Cargo</th>
+                      <th>Área</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentEmployeesTable"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel visual-panel">
+              <div class="people-visual" aria-hidden="true">
+                <div class="person-shape shape-a"></div>
+                <div class="person-shape shape-b"></div>
+                <div class="person-shape shape-c"></div>
+                <div class="data-line line-a"></div>
+                <div class="data-line line-b"></div>
+                <div class="data-line line-c"></div>
+              </div>
+              <div>
+                <p class="eyebrow">Operación</p>
+                <h2>Base inicial lista para crecer</h2>
+                <p class="muted">Administra fichas, calcula liquidaciones referenciales y emite certificados de vacaciones o permisos desde un solo lugar.</p>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="employeesView" data-title="Base de empleados">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Registro</p>
+                  <h2 id="employeeFormTitle">Nuevo empleado</h2>
+                </div>
+                <button class="text-button subtle hidden" type="button" id="cancelEditBtn">Cancelar edición</button>
+              </div>
+
+              <form id="employeeForm" class="form-grid">
+                <input type="hidden" id="employeeId" />
+                <label>
+                  Nombre completo
+                  <input id="employeeName" name="name" required autocomplete="name" placeholder="Ej: Camila Araya Soto" />
+                </label>
+                <label>
+                  RUT / ID
+                  <input id="employeeRut" name="rut" required placeholder="Ej: 12.345.678-9" />
+                </label>
+                <label>
+                  Cargo
+                  <input id="employeeRole" name="role" required placeholder="Ej: Analista de personas" />
+                </label>
+                <label>
+                  Área
+                  <input id="employeeDepartment" name="department" required placeholder="Ej: Operaciones" />
+                </label>
+                <label>
+                  Fecha de ingreso
+                  <input id="employeeStartDate" name="startDate" required type="date" />
+                </label>
+                <label>
+                  Sueldo base
+                  <input id="employeeSalary" name="salary" required type="number" min="0" step="1000" placeholder="1200000" />
+                </label>
+                <label>
+                  Vacaciones disponibles
+                  <input id="employeeVacationDays" name="vacationDays" required type="number" min="0" step="0.5" value="15" />
+                </label>
+                <label>
+                  Estado
+                  <select id="employeeStatus" name="status">
+                    <option value="Activo">Activo</option>
+                    <option value="Suspendido">Suspendido</option>
+                    <option value="Desvinculado">Desvinculado</option>
+                  </select>
+                </label>
+                <button class="primary-button full" type="submit">Guardar empleado</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Base de datos</p>
+                  <h2>Empleados</h2>
+                </div>
+                <label class="search-box">
+                  <span>⌕</span>
+                  <input id="employeeSearch" placeholder="Buscar" />
+                </label>
+              </div>
+              <div class="employee-list" id="employeeList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="payrollView" data-title="Liquidaciones de sueldo">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Cálculo</p>
+                  <h2>Nueva liquidación</h2>
+                </div>
+              </div>
+
+              <form id="payrollForm" class="form-grid">
+                <label>
+                  Empleado
+                  <select id="payrollEmployee" required></select>
+                </label>
+                <label>
+                  Mes
+                  <input id="payrollMonth" type="month" required />
+                </label>
+                <label>
+                  Haberes imponibles
+                  <input id="payrollTaxable" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Haberes no imponibles
+                  <input id="payrollNonTaxable" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Anticipos / descuentos
+                  <input id="payrollOtherDeductions" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Días trabajados
+                  <input id="payrollWorkedDays" type="number" min="0" max="31" step="1" value="30" />
+                </label>
+                <button class="primary-button full" type="submit">Generar liquidación</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Historial</p>
+                  <h2>Liquidaciones emitidas</h2>
+                </div>
+                <button class="text-button subtle" type="button" id="printPayrollBtn">Imprimir última</button>
+              </div>
+              <div class="records-list" id="payrollList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="certificatesView" data-title="Certificados de vacaciones y permisos">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Emisión</p>
+                  <h2>Nuevo certificado</h2>
+                </div>
+              </div>
+
+              <form id="certificateForm" class="form-grid">
+                <label>
+                  Tipo
+                  <select id="certificateType">
+                    <option value="vacaciones">Vacaciones</option>
+                    <option value="permiso">Permiso</option>
+                  </select>
+                </label>
+                <label>
+                  Empleado
+                  <select id="certificateEmployee" required></select>
+                </label>
+                <label>
+                  Desde
+                  <input id="certificateStart" type="date" required />
+                </label>
+                <label>
+                  Hasta
+                  <input id="certificateEnd" type="date" required />
+                </label>
+                <label class="full">
+                  Observación
+                  <textarea id="certificateNotes" rows="4" placeholder="Ej: Autorizado por jefatura directa"></textarea>
+                </label>
+                <button class="primary-button full" type="submit">Emitir certificado</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Documento</p>
+                  <h2>Vista previa</h2>
+                </div>
+                <button class="text-button subtle" type="button" id="printCertificateBtn">Imprimir</button>
+              </div>
+              <article class="document-preview" id="certificatePreview">
+                <p class="muted">Completa el formulario para generar un certificado.</p>
+              </article>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="emptyStateTemplate">
+      <div class="empty-state">
+        <strong>Sin registros todavía</strong>
+        <span>Agrega información para comenzar a operar.</span>
+      </div>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
