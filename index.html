@@ -125,7 +125,7 @@
                   <p class="eyebrow">Registro</p>
                   <h2 id="employeeFormTitle">Nuevo empleado</h2>
                 </div>
-                <button class="text-button subtle hidden" type="button" id="cancelEditBtn">Cancelar edición</button>
+                <button class="text-button subtle hidden" type="button" id="cancelEditBtn" data-admin-only>Cancelar edición</button>
               </div>
 
               <form id="employeeForm" class="form-grid">
@@ -145,6 +145,10 @@
                 <label>
                   Teléfono
                   <input id="employeePhone" name="phone" autocomplete="tel" placeholder="Ej: +56 9 1234 5678" />
+                </label>
+                <label>
+                  Clave de acceso
+                  <input id="employeeAccountPassword" name="accountPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Solo si crearás acceso" />
                 </label>
                 <label>
                   Cargo
@@ -174,7 +178,7 @@
                     <option value="Desvinculado">Desvinculado</option>
                   </select>
                 </label>
-                <button class="primary-button full" type="submit">Guardar empleado</button>
+                <button class="primary-button full" type="submit" data-admin-only>Guardar empleado</button>
               </form>
             </section>
 

@@ -3,7 +3,17 @@ const SUPABASE_KEY = "sb_publishable_tjTcbQ6_4Sc2xmOPH9eSbA_cQd4jLZf";
 const STORAGE_KEY = "rrhh-central-state";
 
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
-const state = { employees: [], payrolls: [], certificates: [], company: null, user: null, remoteReady: false };
+const ADMIN_EMAIL = "pesoutom@gmail.com";
+
+const state = {
+  employees: [],
+  payrolls: [],
+  certificates: [],
+  company: null,
+  user: null,
+  profile: null,
+  remoteReady: false,
+};
 
 const els = {
   viewTitle: document.querySelector("#viewTitle"),
@@ -103,16 +113,24 @@ function setStatus(message) {
 
 function setAuthUi() {
   const signedIn = Boolean(state.user);
+  const admin = isAdmin();
   els.authBtn.textContent = signedIn ? "Salir" : "Ingresar";
-  els.currentUser.textContent = signedIn ? state.user.email : "Sin sesión";
-  els.seedDataBtn.disabled = !signedIn;
+  els.currentUser.textContent = signedIn ? `${state.user.email} · ${admin ? "Admin" : "Personal"}` : "Sin sesión";
+  els.seedDataBtn.disabled = !admin;
   els.exportDataBtn.disabled = !signedIn;
   els.printCertificateBtn.disabled = !signedIn;
   els.printPayrollBtn.disabled = !signedIn;
   [els.employeeForm, els.payrollForm, els.certificateForm].forEach((form) => {
     form.querySelectorAll("input, select, textarea, button").forEach((control) => {
-      control.disabled = !signedIn;
+      control.disabled = !admin;
     });
+  });
+  els.navTabs.forEach((tab) => {
+    const employeeOnlyHidden = !admin && tab.dataset.view === "employees";
+    tab.hidden = employeeOnlyHidden;
+  });
+  document.querySelectorAll("[data-admin-only]").forEach((node) => {
+    node.hidden = !admin;
   });
 }
 
@@ -121,6 +139,7 @@ function clearRemoteState() {
   state.employees = [];
   state.payrolls = [];
   state.certificates = [];
+  state.profile = null;
   state.remoteReady = false;
 }
 
@@ -128,6 +147,39 @@ function requireSignedIn() {
   if (state.user) return true;
   alert("Inicia sesión para modificar los datos.");
   return false;
+}
+
+function isAdmin() {
+  return state.profile?.role === "admin" || state.user?.email === ADMIN_EMAIL;
+}
+
+function requireAdmin() {
+  if (isAdmin()) return true;
+  alert("Solo el administrador puede modificar estos datos.");
+  return false;
+}
+
+async function loadProfile() {
+  const { data, error } = await supabaseClient
+    .from("user_profiles")
+    .select("user_id, email, role, employee_id")
+    .eq("user_id", state.user.id)
+    .maybeSingle();
+
+  if (error) {
+    if (state.user.email === ADMIN_EMAIL) {
+      state.profile = { user_id: state.user.id, email: state.user.email, role: "admin", employee_id: null };
+      return;
+    }
+    throw error;
+  }
+
+  state.profile = data || {
+    user_id: state.user.id,
+    email: state.user.email,
+    role: state.user.email === ADMIN_EMAIL ? "admin" : "employee",
+    employee_id: null,
+  };
 }
 
 function setView(view) {
@@ -234,6 +286,7 @@ function toCertificateRow(certificate) {
 
 async function loadRemoteState() {
   if (!supabaseClient) throw new Error("Supabase no está disponible.");
+  await loadProfile();
 
   const [{ data: companies, error: companyError }, { data: employees, error: employeeError }, { data: payrolls, error: payrollError }, { data: certificates, error: certificateError }] =
     await Promise.all([
@@ -251,7 +304,7 @@ async function loadRemoteState() {
   state.payrolls = (payrolls || []).map(dbPayroll);
   state.certificates = (certificates || []).map(dbCertificate);
   state.remoteReady = true;
-  setStatus(`Conectado a Supabase${state.company ? ` · ${state.company.name}` : ""}`);
+  setStatus(`Conectado a Supabase · ${isAdmin() ? "Administrador" : "Portal personal"}${state.company ? ` · ${state.company.name}` : ""}`);
 }
 
 function loadFallbackState(error) {
@@ -289,7 +342,7 @@ function renderMetrics() {
 
 function renderRecentEmployees() {
   clearNode(els.recentEmployeesTable);
-  const employees = state.employees.slice(0, 5);
+  const employees = isAdmin() ? state.employees.slice(0, 5) : state.employees.slice(0, 1);
 
   if (!employees.length) {
     const row = document.createElement("tr");
@@ -337,7 +390,7 @@ function renderEmployeeList() {
         <span class="employee-name">${employee.name}</span>
         <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${money(employee.salary)} · ${employee.vacationDays} días vacaciones</span>
       </div>
-      <div class="item-actions">
+      <div class="item-actions" ${isAdmin() ? "" : "hidden"}>
         <button class="mini-button" type="button" title="Editar" aria-label="Editar ${employee.name}" data-edit="${employee.id}">✎</button>
         <button class="mini-button danger" type="button" title="Eliminar" aria-label="Eliminar ${employee.name}" data-delete="${employee.id}">×</button>
       </div>
@@ -393,7 +446,7 @@ function renderPayrolls() {
       </div>
       <div class="item-actions">
         <button class="mini-button" type="button" title="Ver" aria-label="Ver liquidación" data-view-payroll="${payroll.id}">▤</button>
-        <button class="mini-button danger" type="button" title="Eliminar" aria-label="Eliminar liquidación" data-delete-payroll="${payroll.id}">×</button>
+        <button class="mini-button danger" type="button" title="Eliminar" aria-label="Eliminar liquidación" data-delete-payroll="${payroll.id}" ${isAdmin() ? "" : "hidden"}>×</button>
       </div>
     `;
     els.payrollList.append(item);
@@ -402,9 +455,10 @@ function renderPayrolls() {
 
 async function submitEmployee(event) {
   event.preventDefault();
-  if (!requireSignedIn()) return;
+  if (!requireSignedIn() || !requireAdmin()) return;
   const form = new FormData(els.employeeForm);
   const id = document.querySelector("#employeeId").value;
+  const accountPassword = form.get("accountPassword")?.trim();
   const employee = {
     id: id || uid("emp"),
     companyId: state.company?.id || null,
@@ -429,6 +483,7 @@ async function submitEmployee(event) {
       if (error) throw error;
       employee.id = data.id;
       employee.companyId = data.company_id;
+      if (accountPassword) await createEmployeeAccess({ ...employee, email: data.email }, accountPassword);
     }
 
     const index = state.employees.findIndex((item) => item.id === employee.id);
@@ -465,7 +520,7 @@ function editEmployee(id) {
 }
 
 async function deleteEmployee(id) {
-  if (!requireSignedIn()) return;
+  if (!requireSignedIn() || !requireAdmin()) return;
   const employee = state.employees.find((item) => item.id === id);
   if (!employee) return;
   const confirmed = window.confirm(`¿Eliminar a ${employee.name}? También se eliminarán sus registros relacionados.`);
@@ -512,7 +567,7 @@ function calculatePayroll(values) {
 
 async function submitPayroll(event) {
   event.preventDefault();
-  if (!requireSignedIn()) return;
+  if (!requireSignedIn() || !requireAdmin()) return;
   if (!state.employees.length) return;
 
   const values = {
@@ -570,7 +625,7 @@ function showPayroll(id) {
 }
 
 async function deletePayroll(id) {
-  if (!requireSignedIn()) return;
+  if (!requireSignedIn() || !requireAdmin()) return;
   try {
     if (state.remoteReady) {
       const { error } = await supabaseClient.from("payrolls").delete().eq("id", id);
@@ -585,7 +640,7 @@ async function deletePayroll(id) {
 
 async function submitCertificate(event) {
   event.preventDefault();
-  if (!requireSignedIn()) return;
+  if (!requireSignedIn() || !requireAdmin()) return;
   const employee = state.employees.find((item) => item.id === els.certificateEmployee.value);
   if (!employee) return;
 
@@ -632,7 +687,7 @@ function certificateDocument(certificate) {
 }
 
 async function seedData() {
-  if (!requireSignedIn()) return;
+  if (!requireSignedIn() || !requireAdmin()) return;
   if (state.employees.length && !window.confirm("Esto agregará datos de ejemplo a los registros actuales. ¿Continuar?")) return;
 
   const examples = [
@@ -727,6 +782,25 @@ async function init() {
     loadFallbackState(error);
   }
   renderAll();
+}
+
+async function createEmployeeAccess(employee, password) {
+  if (!employee.email) throw new Error("El empleado necesita email para crear acceso.");
+  const { data } = await supabaseClient.auth.getSession();
+  const response = await fetch("/api/create-user", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${data.session.access_token}`,
+    },
+    body: JSON.stringify({
+      email: employee.email,
+      password,
+      employeeId: employee.id,
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "No se pudo crear el acceso del empleado.");
 }
 
 async function signIn(event) {
