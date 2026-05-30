@@ -39,6 +39,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -160,8 +165,26 @@ p {
 }
 
 .topbar-actions {
+  align-items: center;
   display: flex;
   gap: 8px;
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 240px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .icon-button,
@@ -537,6 +560,34 @@ textarea:focus {
   text-align: center;
 }
 
+.auth-dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.auth-dialog::backdrop {
+  background: rgba(23, 33, 35, 0.45);
+}
+
+.auth-card {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.auth-message {
+  min-height: 22px;
+  color: var(--red);
+  font-size: 0.88rem;
+}
+
 .empty-state {
   display: grid;
   place-items: center;
@@ -601,6 +652,16 @@ textarea:focus {
   .topbar-actions,
   .section-heading .text-button,
   .search-box {
+    width: 100%;
+  }
+
+  .topbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-chip {
+    max-width: none;
     width: 100%;
   }
 

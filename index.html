@@ -48,6 +48,8 @@
             <h1 id="viewTitle">Panel de Recursos Humanos</h1>
           </div>
           <div class="topbar-actions">
+            <span class="user-chip" id="currentUser">Sin sesión</span>
+            <button class="text-button" type="button" id="authBtn">Ingresar</button>
             <button class="icon-button" type="button" id="seedDataBtn" title="Cargar datos de ejemplo" aria-label="Cargar datos de ejemplo">＋</button>
             <button class="icon-button" type="button" id="exportDataBtn" title="Exportar datos" aria-label="Exportar datos">⇩</button>
           </div>
@@ -135,6 +137,14 @@
                 <label>
                   RUT / ID
                   <input id="employeeRut" name="rut" required placeholder="Ej: 12.345.678-9" />
+                </label>
+                <label>
+                  Email
+                  <input id="employeeEmail" name="email" type="email" autocomplete="email" placeholder="Ej: camila@empresa.cl" />
+                </label>
+                <label>
+                  Teléfono
+                  <input id="employeePhone" name="phone" autocomplete="tel" placeholder="Ej: +56 9 1234 5678" />
                 </label>
                 <label>
                   Cargo
@@ -297,6 +307,28 @@
         <span>Agrega información para comenzar a operar.</span>
       </div>
     </template>
+
+    <dialog class="auth-dialog" id="authDialog">
+      <form class="auth-card" id="authForm" method="dialog">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Acceso interno</p>
+            <h2>Ingresar a RRHH Central</h2>
+          </div>
+          <button class="mini-button" type="button" id="closeAuthBtn" aria-label="Cerrar">×</button>
+        </div>
+        <label>
+          Email
+          <input id="authEmail" type="email" autocomplete="email" required placeholder="tu@empresa.cl" />
+        </label>
+        <label>
+          Contraseña
+          <input id="authPassword" type="password" autocomplete="current-password" required placeholder="••••••••" />
+        </label>
+        <p class="auth-message" id="authMessage"></p>
+        <button class="primary-button full" type="submit">Ingresar</button>
+      </form>
+    </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>

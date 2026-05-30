@@ -3,7 +3,7 @@ const SUPABASE_KEY = "sb_publishable_tjTcbQ6_4Sc2xmOPH9eSbA_cQd4jLZf";
 const STORAGE_KEY = "rrhh-central-state";
 
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
-const state = { employees: [], payrolls: [], certificates: [], company: null, remoteReady: false };
+const state = { employees: [], payrolls: [], certificates: [], company: null, user: null, remoteReady: false };
 
 const els = {
   viewTitle: document.querySelector("#viewTitle"),
@@ -32,6 +32,14 @@ const els = {
   printCertificateBtn: document.querySelector("#printCertificateBtn"),
   seedDataBtn: document.querySelector("#seedDataBtn"),
   exportDataBtn: document.querySelector("#exportDataBtn"),
+  authBtn: document.querySelector("#authBtn"),
+  authDialog: document.querySelector("#authDialog"),
+  authForm: document.querySelector("#authForm"),
+  authEmail: document.querySelector("#authEmail"),
+  authPassword: document.querySelector("#authPassword"),
+  authMessage: document.querySelector("#authMessage"),
+  closeAuthBtn: document.querySelector("#closeAuthBtn"),
+  currentUser: document.querySelector("#currentUser"),
   emptyStateTemplate: document.querySelector("#emptyStateTemplate"),
 };
 
@@ -93,6 +101,35 @@ function setStatus(message) {
   if (els.storageStatus) els.storageStatus.textContent = message;
 }
 
+function setAuthUi() {
+  const signedIn = Boolean(state.user);
+  els.authBtn.textContent = signedIn ? "Salir" : "Ingresar";
+  els.currentUser.textContent = signedIn ? state.user.email : "Sin sesión";
+  els.seedDataBtn.disabled = !signedIn;
+  els.exportDataBtn.disabled = !signedIn;
+  els.printCertificateBtn.disabled = !signedIn;
+  els.printPayrollBtn.disabled = !signedIn;
+  [els.employeeForm, els.payrollForm, els.certificateForm].forEach((form) => {
+    form.querySelectorAll("input, select, textarea, button").forEach((control) => {
+      control.disabled = !signedIn;
+    });
+  });
+}
+
+function clearRemoteState() {
+  state.company = null;
+  state.employees = [];
+  state.payrolls = [];
+  state.certificates = [];
+  state.remoteReady = false;
+}
+
+function requireSignedIn() {
+  if (state.user) return true;
+  alert("Inicia sesión para modificar los datos.");
+  return false;
+}
+
 function setView(view) {
   els.views.forEach((viewEl) => viewEl.classList.toggle("active", viewEl.id === `${view}View`));
   els.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
@@ -110,6 +147,8 @@ function dbEmployee(row) {
     companyId: row.company_id,
     name: row.full_name,
     rut: row.rut,
+    email: row.email || "",
+    phone: row.phone || "",
     role: row.position,
     department: row.department,
     startDate: row.start_date,
@@ -124,6 +163,8 @@ function toEmployeeRow(employee) {
     company_id: employee.companyId || state.company?.id || null,
     full_name: employee.name,
     rut: employee.rut,
+    email: employee.email || null,
+    phone: employee.phone || null,
     position: employee.role,
     department: employee.department,
     start_date: employee.startDate,
@@ -224,6 +265,7 @@ function loadFallbackState(error) {
 }
 
 function renderAll() {
+  setAuthUi();
   renderMetrics();
   renderRecentEmployees();
   renderEmployeeList();
@@ -275,7 +317,7 @@ function renderEmployeeList() {
   clearNode(els.employeeList);
   const query = els.employeeSearch.value.trim().toLowerCase();
   const employees = state.employees.filter((employee) => {
-    return [employee.name, employee.rut, employee.role, employee.department, employee.status]
+    return [employee.name, employee.rut, employee.email, employee.phone, employee.role, employee.department, employee.status]
       .join(" ")
       .toLowerCase()
       .includes(query);
@@ -289,10 +331,11 @@ function renderEmployeeList() {
   employees.forEach((employee) => {
     const item = document.createElement("article");
     item.className = "employee-item";
+    const contact = [employee.email, employee.phone].filter(Boolean).join(" · ");
     item.innerHTML = `
       <div>
         <span class="employee-name">${employee.name}</span>
-        <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${money(employee.salary)} · ${employee.vacationDays} días vacaciones</span>
+        <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${money(employee.salary)} · ${employee.vacationDays} días vacaciones</span>
       </div>
       <div class="item-actions">
         <button class="mini-button" type="button" title="Editar" aria-label="Editar ${employee.name}" data-edit="${employee.id}">✎</button>
@@ -359,6 +402,7 @@ function renderPayrolls() {
 
 async function submitEmployee(event) {
   event.preventDefault();
+  if (!requireSignedIn()) return;
   const form = new FormData(els.employeeForm);
   const id = document.querySelector("#employeeId").value;
   const employee = {
@@ -366,6 +410,8 @@ async function submitEmployee(event) {
     companyId: state.company?.id || null,
     name: form.get("name").trim(),
     rut: form.get("rut").trim(),
+    email: form.get("email").trim(),
+    phone: form.get("phone").trim(),
     role: form.get("role").trim(),
     department: form.get("department").trim(),
     startDate: form.get("startDate"),
@@ -406,6 +452,8 @@ function editEmployee(id) {
   document.querySelector("#employeeId").value = employee.id;
   document.querySelector("#employeeName").value = employee.name;
   document.querySelector("#employeeRut").value = employee.rut;
+  document.querySelector("#employeeEmail").value = employee.email || "";
+  document.querySelector("#employeePhone").value = employee.phone || "";
   document.querySelector("#employeeRole").value = employee.role;
   document.querySelector("#employeeDepartment").value = employee.department;
   document.querySelector("#employeeStartDate").value = employee.startDate;
@@ -417,6 +465,7 @@ function editEmployee(id) {
 }
 
 async function deleteEmployee(id) {
+  if (!requireSignedIn()) return;
   const employee = state.employees.find((item) => item.id === id);
   if (!employee) return;
   const confirmed = window.confirm(`¿Eliminar a ${employee.name}? También se eliminarán sus registros relacionados.`);
@@ -463,6 +512,7 @@ function calculatePayroll(values) {
 
 async function submitPayroll(event) {
   event.preventDefault();
+  if (!requireSignedIn()) return;
   if (!state.employees.length) return;
 
   const values = {
@@ -520,6 +570,7 @@ function showPayroll(id) {
 }
 
 async function deletePayroll(id) {
+  if (!requireSignedIn()) return;
   try {
     if (state.remoteReady) {
       const { error } = await supabaseClient.from("payrolls").delete().eq("id", id);
@@ -534,6 +585,7 @@ async function deletePayroll(id) {
 
 async function submitCertificate(event) {
   event.preventDefault();
+  if (!requireSignedIn()) return;
   const employee = state.employees.find((item) => item.id === els.certificateEmployee.value);
   if (!employee) return;
 
@@ -580,6 +632,7 @@ function certificateDocument(certificate) {
 }
 
 async function seedData() {
+  if (!requireSignedIn()) return;
   if (state.employees.length && !window.confirm("Esto agregará datos de ejemplo a los registros actuales. ¿Continuar?")) return;
 
   const examples = [
@@ -587,6 +640,8 @@ async function seedData() {
       companyId: state.company?.id || null,
       name: "Camila Araya Soto",
       rut: "12.345.678-9",
+      email: "camila@empresa.cl",
+      phone: "+56 9 1234 5678",
       role: "Analista de personas",
       department: "Recursos Humanos",
       startDate: "2023-03-01",
@@ -598,6 +653,8 @@ async function seedData() {
       companyId: state.company?.id || null,
       name: "Matías Fuentes Rojas",
       rut: "18.456.111-2",
+      email: "matias@empresa.cl",
+      phone: "+56 9 8765 4321",
       role: "Coordinador de operaciones",
       department: "Operaciones",
       startDate: "2022-08-15",
@@ -609,6 +666,8 @@ async function seedData() {
       companyId: state.company?.id || null,
       name: "Daniela Morales Vera",
       rut: "16.789.432-1",
+      email: "daniela@empresa.cl",
+      phone: "+56 9 2222 3333",
       role: "Ejecutiva comercial",
       department: "Ventas",
       startDate: "2024-01-10",
@@ -643,6 +702,24 @@ function exportData() {
 }
 
 async function init() {
+  if (!supabaseClient) {
+    loadFallbackState(new Error("Supabase no está disponible."));
+    renderAll();
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) console.error("No se pudo leer la sesión:", error);
+  state.user = data?.session?.user || null;
+  setAuthUi();
+
+  if (!state.user) {
+    clearRemoteState();
+    setStatus("Inicia sesión para usar Supabase.");
+    renderAll();
+    return;
+  }
+
   try {
     setStatus("Conectando con Supabase...");
     await loadRemoteState();
@@ -650,6 +727,40 @@ async function init() {
     loadFallbackState(error);
   }
   renderAll();
+}
+
+async function signIn(event) {
+  event.preventDefault();
+  els.authMessage.textContent = "Ingresando...";
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: els.authEmail.value.trim(),
+    password: els.authPassword.value,
+  });
+
+  if (error) {
+    els.authMessage.textContent = error.message;
+    return;
+  }
+
+  state.user = data.user;
+  els.authDialog.close();
+  els.authForm.reset();
+  setStatus("Conectando con Supabase...");
+  await loadRemoteState();
+  renderAll();
+}
+
+async function toggleAuth() {
+  if (state.user) {
+    await supabaseClient.auth.signOut();
+    state.user = null;
+    clearRemoteState();
+    setStatus("Sesión cerrada. Inicia sesión para usar Supabase.");
+    renderAll();
+    return;
+  }
+  els.authMessage.textContent = "";
+  els.authDialog.showModal();
 }
 
 els.navTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
@@ -668,6 +779,9 @@ els.payrollForm.addEventListener("submit", submitPayroll);
 els.certificateForm.addEventListener("submit", submitCertificate);
 els.seedDataBtn.addEventListener("click", seedData);
 els.exportDataBtn.addEventListener("click", exportData);
+els.authBtn.addEventListener("click", toggleAuth);
+els.authForm.addEventListener("submit", signIn);
+els.closeAuthBtn.addEventListener("click", () => els.authDialog.close());
 els.printCertificateBtn.addEventListener("click", () => window.print());
 els.printPayrollBtn.addEventListener("click", () => {
   if (state.payrolls[0]) {
