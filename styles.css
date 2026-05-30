@@ -620,6 +620,8 @@ textarea:focus {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 0.88rem;
   line-height: 1.25;
+  max-width: 980px;
+  margin: 0 auto;
 }
 
 .payroll-title {
@@ -634,8 +636,8 @@ textarea:focus {
 
 .payroll-meta {
   display: grid;
-  grid-template-columns: 92px minmax(170px, 1fr);
-  max-width: 390px;
+  grid-template-columns: 118px minmax(260px, 340px);
+  max-width: 470px;
   gap: 0;
   margin-bottom: 18px;
 }
@@ -644,6 +646,10 @@ textarea:focus {
 .payroll-meta strong {
   min-height: 20px;
   padding: 2px 4px;
+}
+
+.payroll-meta span {
+  white-space: nowrap;
 }
 
 .payroll-meta strong {
@@ -659,7 +665,7 @@ textarea:focus {
 .payroll-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 80px;
+  gap: 64px;
 }
 
 .payroll-head {
@@ -672,13 +678,20 @@ textarea:focus {
 .payroll-line,
 .payroll-document p {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20px 86px;
-  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) 22px 112px;
+  gap: 8px;
   margin: 2px 0;
+  min-height: 20px;
+  align-items: baseline;
+}
+
+.payroll-document p span:first-child {
+  overflow-wrap: anywhere;
 }
 
 .payroll-document p b {
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .payroll-document p.strong {
@@ -705,10 +718,12 @@ textarea:focus {
 }
 
 .payroll-pay p {
-  width: 320px;
+  width: 360px;
 }
 
 .payroll-document .highlight b {
+  display: inline-block;
+  min-width: 96px;
   background: #c6efce;
   color: #006100;
   padding: 2px 6px;
@@ -852,9 +867,42 @@ textarea:focus {
   .document-preview {
     border: 0;
     min-height: auto;
+    padding: 0;
   }
 
   .payroll-employer {
     display: none;
+  }
+
+  .payroll-document {
+    max-width: none;
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .payroll-title {
+    margin: 0 0 18px;
+  }
+
+  .payroll-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 54px;
+  }
+
+  .payroll-meta {
+    grid-template-columns: 118px 340px;
+  }
+
+  .payroll-document p {
+    grid-template-columns: minmax(0, 1fr) 22px 104px;
+  }
+
+  .payroll-pay {
+    page-break-inside: avoid;
+    margin-top: 28px;
+  }
+
+  .payroll-pay p {
+    width: 360px;
   }
 }
