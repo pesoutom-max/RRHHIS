@@ -450,6 +450,33 @@ textarea:focus {
   display: none;
 }
 
+.login-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: #172123;
+}
+
+.login-card {
+  width: min(440px, 100%);
+}
+
+.login-brand {
+  margin-bottom: 18px;
+  color: #f8fbf6;
+}
+
+.login-form h1 {
+  margin: 4px 0 0;
+  font-size: 2rem;
+}
+
+.login-screen.hidden,
+.app-shell.hidden {
+  display: none;
+}
+
 .search-box {
   display: flex;
   align-items: center;
@@ -588,6 +615,105 @@ textarea:focus {
   font-size: 0.88rem;
 }
 
+.payroll-document {
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.payroll-title {
+  margin: -28px -28px 18px;
+  padding: 20px;
+  background: #335a9b;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.payroll-meta {
+  display: grid;
+  grid-template-columns: 92px minmax(170px, 1fr);
+  max-width: 390px;
+  gap: 0;
+  margin-bottom: 18px;
+}
+
+.payroll-meta span,
+.payroll-meta strong {
+  min-height: 20px;
+  padding: 2px 4px;
+}
+
+.payroll-meta strong {
+  border: 1px solid #000;
+  font-weight: 400;
+  text-align: center;
+}
+
+.payroll-days {
+  margin: 12px 0 4px;
+}
+
+.payroll-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+}
+
+.payroll-head {
+  border-bottom: 1px solid #000;
+  border-top: 1px solid #000;
+  padding: 3px 0;
+  text-align: center;
+}
+
+.payroll-line,
+.payroll-document p {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px 86px;
+  gap: 4px;
+  margin: 2px 0;
+}
+
+.payroll-document p b {
+  text-align: right;
+}
+
+.payroll-document p.strong {
+  font-weight: 800;
+}
+
+.payroll-total {
+  margin: 16px 0 12px;
+  border-top: 2px solid #000;
+  padding-top: 4px;
+}
+
+.payroll-tax,
+.payroll-employer {
+  margin-top: 22px;
+}
+
+.payroll-pay {
+  display: grid;
+  justify-content: end;
+  margin-top: 28px;
+  border-top: 2px solid #000;
+  padding-top: 16px;
+}
+
+.payroll-pay p {
+  width: 320px;
+}
+
+.payroll-document .highlight b {
+  background: #c6efce;
+  color: #006100;
+  padding: 2px 6px;
+}
+
 .empty-state {
   display: grid;
   place-items: center;
@@ -689,6 +815,11 @@ textarea:focus {
   .record-item {
     grid-template-columns: 1fr;
   }
+
+  .payroll-columns {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }
 
 @media print {
@@ -721,5 +852,9 @@ textarea:focus {
   .document-preview {
     border: 0;
     min-height: auto;
+  }
+
+  .payroll-employer {
+    display: none;
   }
 }

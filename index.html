@@ -7,7 +7,35 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <section class="login-screen" id="loginScreen">
+      <div class="login-card">
+        <div class="brand login-brand">
+          <div class="brand-mark">RH</div>
+          <div>
+            <strong>RRHH Central</strong>
+            <span>Administración interna</span>
+          </div>
+        </div>
+        <form class="auth-card login-form" id="authForm">
+          <div>
+            <p class="eyebrow">Acceso al sistema</p>
+            <h1>Ingresar</h1>
+          </div>
+          <label>
+            Usuario
+            <input id="authEmail" type="email" autocomplete="email" required placeholder="correo@empresa.cl" />
+          </label>
+          <label>
+            Contraseña
+            <input id="authPassword" type="password" autocomplete="current-password" required placeholder="••••••••" />
+          </label>
+          <p class="auth-message" id="authMessage"></p>
+          <button class="primary-button full" type="submit">Ingresar</button>
+        </form>
+      </div>
+    </section>
+
+    <div class="app-shell hidden" id="appShell">
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark">RH</div>
@@ -222,11 +250,58 @@
                   <input id="payrollTaxable" type="number" min="0" step="1000" value="0" />
                 </label>
                 <label>
-                  Haberes no imponibles
-                  <input id="payrollNonTaxable" type="number" min="0" step="1000" value="0" />
+                  Bono especial
+                  <input id="payrollBonus" type="number" min="0" step="1000" value="0" />
                 </label>
                 <label>
-                  Anticipos / descuentos
+                  Horas extras
+                  <input id="payrollOvertime" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Asignación familiar
+                  <input id="payrollFamilyAllowance" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Locomoción
+                  <input id="payrollTransport" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Colación
+                  <input id="payrollMeal" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  AFP
+                  <select id="payrollAfp">
+                    <option value="modelo">Modelo</option>
+                    <option value="capital">Capital</option>
+                    <option value="cuprum">Cuprum</option>
+                    <option value="habitat">Habitat</option>
+                    <option value="planvital">PlanVital</option>
+                    <option value="provida">Provida</option>
+                    <option value="uno">Uno</option>
+                  </select>
+                </label>
+                <label>
+                  Salud
+                  <select id="payrollHealthProvider">
+                    <option value="fonasa">FONASA</option>
+                    <option value="isapre">ISAPRE</option>
+                  </select>
+                </label>
+                <label>
+                  Anticipo
+                  <input id="payrollAdvance" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Préstamos cuota
+                  <input id="payrollLoan" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Descuento terceros
+                  <input id="payrollThirdParty" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Otros descuentos
                   <input id="payrollOtherDeductions" type="number" min="0" step="1000" value="0" />
                 </label>
                 <label>
@@ -311,28 +386,6 @@
         <span>Agrega información para comenzar a operar.</span>
       </div>
     </template>
-
-    <dialog class="auth-dialog" id="authDialog">
-      <form class="auth-card" id="authForm" method="dialog">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Acceso interno</p>
-            <h2>Ingresar a RRHH Central</h2>
-          </div>
-          <button class="mini-button" type="button" id="closeAuthBtn" aria-label="Cerrar">×</button>
-        </div>
-        <label>
-          Email
-          <input id="authEmail" type="email" autocomplete="email" required placeholder="tu@empresa.cl" />
-        </label>
-        <label>
-          Contraseña
-          <input id="authPassword" type="password" autocomplete="current-password" required placeholder="••••••••" />
-        </label>
-        <p class="auth-message" id="authMessage"></p>
-        <button class="primary-button full" type="submit">Ingresar</button>
-      </form>
-    </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>

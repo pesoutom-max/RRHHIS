@@ -19,6 +19,23 @@ create table if not exists public.user_profiles (
   )
 );
 
+alter table public.payrolls
+  add column if not exists bonus_special integer not null default 0,
+  add column if not exists overtime_pay integer not null default 0,
+  add column if not exists family_allowance integer not null default 0,
+  add column if not exists transport_allowance integer not null default 0,
+  add column if not exists meal_allowance integer not null default 0,
+  add column if not exists advance_payment integer not null default 0,
+  add column if not exists loan_deduction integer not null default 0,
+  add column if not exists third_party_deduction integer not null default 0,
+  add column if not exists afp_code text not null default 'modelo',
+  add column if not exists health_provider text not null default 'fonasa',
+  add column if not exists employer_sis integer not null default 0,
+  add column if not exists employer_unemployment integer not null default 0,
+  add column if not exists employer_afp integer not null default 0,
+  add column if not exists employer_social_security integer not null default 0,
+  add column if not exists employer_total integer not null default 0;
+
 alter table public.user_profiles enable row level security;
 
 create or replace function public.current_profile_role()

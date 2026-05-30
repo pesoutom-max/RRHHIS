@@ -4,6 +4,40 @@ const STORAGE_KEY = "rrhh-central-state";
 
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_EMAIL = "pesoutom@gmail.com";
+const PAYROLL_INDICATORS = {
+  periodLabel: "Mayo 2026",
+  uf: 40610.69,
+  utm: 70588,
+  taxableCap: 3654962,
+  unemploymentCap: 5490565,
+  minimumWage: 539000,
+  sisRate: 0.0162,
+  employerSocialSecurityRate: 0.009,
+  healthRate: 0.07,
+  afp: {
+    capital: { label: "Capital", workerRate: 0.1144, employerRate: 0.001 },
+    cuprum: { label: "Cuprum", workerRate: 0.1144, employerRate: 0.001 },
+    habitat: { label: "Habitat", workerRate: 0.1127, employerRate: 0.001 },
+    planvital: { label: "PlanVital", workerRate: 0.1116, employerRate: 0.001 },
+    provida: { label: "Provida", workerRate: 0.1145, employerRate: 0.001 },
+    modelo: { label: "Modelo", workerRate: 0.1058, employerRate: 0.001 },
+    uno: { label: "Uno", workerRate: 0.1046, employerRate: 0.001 },
+  },
+  unemployment: {
+    indefinite: { label: "Plazo indefinido", employerRate: 0.024, workerRate: 0.006 },
+    fixed: { label: "Plazo fijo", employerRate: 0.03, workerRate: 0 },
+  },
+  incomeTaxBrackets: [
+    { from: 0, to: 13.5, rate: 0, rebate: 0 },
+    { from: 13.5, to: 30, rate: 0.04, rebate: 0.54 },
+    { from: 30, to: 50, rate: 0.08, rebate: 1.74 },
+    { from: 50, to: 70, rate: 0.135, rebate: 4.49 },
+    { from: 70, to: 90, rate: 0.23, rebate: 11.14 },
+    { from: 90, to: 120, rate: 0.304, rebate: 17.8 },
+    { from: 120, to: 150, rate: 0.35, rebate: 23.32 },
+    { from: 150, to: Infinity, rate: 0.4, rebate: 30.82 },
+  ],
+};
 
 const state = {
   employees: [],
@@ -34,6 +68,16 @@ const els = {
   payrollEmployee: document.querySelector("#payrollEmployee"),
   payrollMonth: document.querySelector("#payrollMonth"),
   payrollTaxable: document.querySelector("#payrollTaxable"),
+  payrollBonus: document.querySelector("#payrollBonus"),
+  payrollOvertime: document.querySelector("#payrollOvertime"),
+  payrollFamilyAllowance: document.querySelector("#payrollFamilyAllowance"),
+  payrollTransport: document.querySelector("#payrollTransport"),
+  payrollMeal: document.querySelector("#payrollMeal"),
+  payrollAfp: document.querySelector("#payrollAfp"),
+  payrollHealthProvider: document.querySelector("#payrollHealthProvider"),
+  payrollAdvance: document.querySelector("#payrollAdvance"),
+  payrollLoan: document.querySelector("#payrollLoan"),
+  payrollThirdParty: document.querySelector("#payrollThirdParty"),
   payrollList: document.querySelector("#payrollList"),
   printPayrollBtn: document.querySelector("#printPayrollBtn"),
   certificateForm: document.querySelector("#certificateForm"),
@@ -42,13 +86,13 @@ const els = {
   printCertificateBtn: document.querySelector("#printCertificateBtn"),
   seedDataBtn: document.querySelector("#seedDataBtn"),
   exportDataBtn: document.querySelector("#exportDataBtn"),
+  appShell: document.querySelector("#appShell"),
+  loginScreen: document.querySelector("#loginScreen"),
   authBtn: document.querySelector("#authBtn"),
-  authDialog: document.querySelector("#authDialog"),
   authForm: document.querySelector("#authForm"),
   authEmail: document.querySelector("#authEmail"),
   authPassword: document.querySelector("#authPassword"),
   authMessage: document.querySelector("#authMessage"),
-  closeAuthBtn: document.querySelector("#closeAuthBtn"),
   currentUser: document.querySelector("#currentUser"),
   emptyStateTemplate: document.querySelector("#emptyStateTemplate"),
 };
@@ -84,6 +128,10 @@ function money(value) {
   }).format(Number(value) || 0);
 }
 
+function payrollMoney(value) {
+  return new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(Math.round(Number(value) || 0));
+}
+
 function readableDate(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date(`${value}T12:00:00`));
@@ -114,6 +162,8 @@ function setStatus(message) {
 function setAuthUi() {
   const signedIn = Boolean(state.user);
   const admin = isAdmin();
+  els.loginScreen.classList.toggle("hidden", signedIn);
+  els.appShell.classList.toggle("hidden", !signedIn);
   els.authBtn.textContent = signedIn ? "Salir" : "Ingresar";
   els.currentUser.textContent = signedIn ? `${state.user.email} · ${admin ? "Admin" : "Personal"}` : "Sin sesión";
   els.seedDataBtn.disabled = !admin;
@@ -183,6 +233,8 @@ async function loadProfile() {
 }
 
 function setView(view) {
+  if (!state.user) return;
+  if (!isAdmin() && view === "employees") view = "dashboard";
   els.views.forEach((viewEl) => viewEl.classList.toggle("active", viewEl.id === `${view}View`));
   els.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
   const activeView = document.querySelector(`#${view}View`);
@@ -241,6 +293,21 @@ function dbPayroll(row) {
     totalDeductions: Number(row.total_deductions || 0),
     grossPay: Number(row.gross_pay || 0),
     netPay: Number(row.net_pay || 0),
+    bonus: Number(row.bonus_special || 0),
+    overtime: Number(row.overtime_pay || 0),
+    familyAllowance: Number(row.family_allowance || 0),
+    transport: Number(row.transport_allowance || 0),
+    meal: Number(row.meal_allowance || 0),
+    advance: Number(row.advance_payment || 0),
+    loan: Number(row.loan_deduction || 0),
+    thirdParty: Number(row.third_party_deduction || 0),
+    afp: row.afp_code || "modelo",
+    healthProvider: row.health_provider || "fonasa",
+    employerSis: Number(row.employer_sis || 0),
+    employerUnemployment: Number(row.employer_unemployment || 0),
+    employerAfp: Number(row.employer_afp || 0),
+    employerSocialSecurity: Number(row.employer_social_security || 0),
+    employerTotal: Number(row.employer_total || 0),
     createdAt: row.created_at,
   };
 }
@@ -252,6 +319,38 @@ function toPayrollRow(payroll) {
     taxable_income: payroll.taxable,
     non_taxable_income: payroll.nonTaxable,
     other_deductions: payroll.otherDeductions,
+    worked_days: payroll.workedDays,
+    pension_deduction: payroll.pension,
+    health_deduction: payroll.health,
+    unemployment_deduction: payroll.unemployment,
+    total_deductions: payroll.totalDeductions,
+    gross_pay: payroll.grossPay,
+    net_pay: payroll.netPay,
+    bonus_special: payroll.bonus,
+    overtime_pay: payroll.overtime,
+    family_allowance: payroll.familyAllowance,
+    transport_allowance: payroll.transport,
+    meal_allowance: payroll.meal,
+    advance_payment: payroll.advance,
+    loan_deduction: payroll.loan,
+    third_party_deduction: payroll.thirdParty,
+    afp_code: payroll.afp,
+    health_provider: payroll.healthProvider,
+    employer_sis: payroll.employerSis,
+    employer_unemployment: payroll.employerUnemployment,
+    employer_afp: payroll.employerAfp,
+    employer_social_security: payroll.employerSocialSecurity,
+    employer_total: payroll.employerTotal,
+  };
+}
+
+function toLegacyPayrollRow(payroll) {
+  return {
+    employee_id: payroll.employeeId,
+    period_month: monthDate(payroll.month),
+    taxable_income: payroll.taxable,
+    non_taxable_income: payroll.nonTaxable,
+    other_deductions: payroll.totalOtherDeductions || payroll.otherDeductions,
     worked_days: payroll.workedDays,
     pension_deduction: payroll.pension,
     health_deduction: payroll.health,
@@ -325,6 +424,7 @@ function renderAll() {
   renderEmployeeOptions();
   renderPayrollDefaults();
   renderPayrolls();
+  renderCertificates();
   saveLocalState();
 }
 
@@ -428,6 +528,17 @@ function renderPayrollDefaults() {
   }
 }
 
+function safeAmount(selector) {
+  return Number(document.querySelector(selector)?.value || 0);
+}
+
+function calculateIncomeTax(taxableBase) {
+  const taxableUtm = taxableBase / PAYROLL_INDICATORS.utm;
+  const bracket = PAYROLL_INDICATORS.incomeTaxBrackets.find((item) => taxableUtm > item.from && taxableUtm <= item.to);
+  if (!bracket || bracket.rate === 0) return 0;
+  return Math.max(Math.round((taxableUtm * bracket.rate - bracket.rebate) * PAYROLL_INDICATORS.utm), 0);
+}
+
 function renderPayrolls() {
   clearNode(els.payrollList);
   if (!state.payrolls.length) {
@@ -451,6 +562,40 @@ function renderPayrolls() {
     `;
     els.payrollList.append(item);
   });
+}
+
+function renderCertificates() {
+  if (!state.certificates.length) {
+    els.certificatePreview.innerHTML = `<p class="muted">No hay certificados emitidos todavía.</p>`;
+    return;
+  }
+
+  els.certificatePreview.innerHTML = `
+    <div class="records-list">
+      ${state.certificates
+        .map((certificate) => {
+          const employee = state.employees.find((item) => item.id === certificate.employeeId);
+          return `
+            <article class="record-item">
+              <div>
+                <span class="record-title">${certificate.type === "vacaciones" ? "Certificado de vacaciones" : "Certificado de permiso"}</span>
+                <span class="record-meta">${employee?.name || "Empleado"} · ${readableDate(certificate.start)} al ${readableDate(certificate.end)}</span>
+              </div>
+              <div class="item-actions">
+                <button class="mini-button" type="button" title="Ver" aria-label="Ver certificado" data-view-certificate="${certificate.id}">▤</button>
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function showCertificate(id) {
+  const certificate = state.certificates.find((item) => item.id === id);
+  if (!certificate) return;
+  els.certificatePreview.innerHTML = certificateDocument(certificate);
 }
 
 async function submitEmployee(event) {
@@ -550,19 +695,61 @@ function resetEmployeeForm() {
 }
 
 function calculatePayroll(values) {
+  const afp = PAYROLL_INDICATORS.afp[values.afp] || PAYROLL_INDICATORS.afp.modelo;
+  const unemploymentRules = PAYROLL_INDICATORS.unemployment.indefinite;
   const taxable = Number(values.taxable) || 0;
-  const nonTaxable = Number(values.nonTaxable) || 0;
+  const bonus = Number(values.bonus) || 0;
+  const overtime = Number(values.overtime) || 0;
+  const familyAllowance = Number(values.familyAllowance) || 0;
+  const transport = Number(values.transport) || 0;
+  const meal = Number(values.meal) || 0;
+  const advance = Number(values.advance) || 0;
+  const loan = Number(values.loan) || 0;
+  const thirdParty = Number(values.thirdParty) || 0;
   const otherDeductions = Number(values.otherDeductions) || 0;
   const workedDays = Number(values.workedDays) || 30;
   const proportionalTaxable = Math.round((taxable / 30) * workedDays);
-  const pension = Math.round(proportionalTaxable * 0.1);
-  const health = Math.round(proportionalTaxable * 0.07);
-  const unemployment = Math.round(proportionalTaxable * 0.006);
-  const totalDeductions = pension + health + unemployment + otherDeductions;
-  const grossPay = proportionalTaxable + nonTaxable;
+  const totalTaxable = proportionalTaxable + bonus + overtime;
+  const cappedTaxable = Math.min(totalTaxable, PAYROLL_INDICATORS.taxableCap);
+  const cappedUnemployment = Math.min(totalTaxable, PAYROLL_INDICATORS.unemploymentCap);
+  const pension = Math.round(cappedTaxable * afp.workerRate);
+  const health = Math.round(cappedTaxable * PAYROLL_INDICATORS.healthRate);
+  const unemployment = Math.round(cappedUnemployment * unemploymentRules.workerRate);
+  const totalLegalDeductions = pension + health + unemployment;
+  const incomeTaxBase = Math.max(totalTaxable - totalLegalDeductions, 0);
+  const incomeTax = calculateIncomeTax(incomeTaxBase);
+  const totalOtherDeductions = advance + loan + thirdParty + otherDeductions;
+  const totalDeductions = totalLegalDeductions + incomeTax + totalOtherDeductions;
+  const nonTaxable = familyAllowance + transport + meal;
+  const grossPay = totalTaxable + nonTaxable;
   const netPay = grossPay - totalDeductions;
+  const employerSis = Math.round(cappedTaxable * PAYROLL_INDICATORS.sisRate);
+  const employerUnemployment = Math.round(cappedUnemployment * unemploymentRules.employerRate);
+  const employerAfp = Math.round(cappedTaxable * afp.employerRate);
+  const employerSocialSecurity = Math.round(cappedTaxable * PAYROLL_INDICATORS.employerSocialSecurityRate);
+  const employerTotal = employerSis + employerUnemployment + employerAfp + employerSocialSecurity;
 
-  return { proportionalTaxable, pension, health, unemployment, totalDeductions, grossPay, netPay };
+  return {
+    proportionalTaxable,
+    totalTaxable,
+    cappedTaxable,
+    nonTaxable,
+    pension,
+    health,
+    unemployment,
+    totalLegalDeductions,
+    incomeTaxBase,
+    incomeTax,
+    totalOtherDeductions,
+    totalDeductions,
+    grossPay,
+    netPay,
+    employerSis,
+    employerUnemployment,
+    employerAfp,
+    employerSocialSecurity,
+    employerTotal,
+  };
 }
 
 async function submitPayroll(event) {
@@ -573,18 +760,30 @@ async function submitPayroll(event) {
   const values = {
     employeeId: els.payrollEmployee.value,
     month: els.payrollMonth.value,
-    taxable: Number(document.querySelector("#payrollTaxable").value),
-    nonTaxable: Number(document.querySelector("#payrollNonTaxable").value),
-    otherDeductions: Number(document.querySelector("#payrollOtherDeductions").value),
-    workedDays: Number(document.querySelector("#payrollWorkedDays").value),
+    taxable: safeAmount("#payrollTaxable"),
+    bonus: safeAmount("#payrollBonus"),
+    overtime: safeAmount("#payrollOvertime"),
+    familyAllowance: safeAmount("#payrollFamilyAllowance"),
+    transport: safeAmount("#payrollTransport"),
+    meal: safeAmount("#payrollMeal"),
+    afp: els.payrollAfp.value,
+    healthProvider: els.payrollHealthProvider.value,
+    advance: safeAmount("#payrollAdvance"),
+    loan: safeAmount("#payrollLoan"),
+    thirdParty: safeAmount("#payrollThirdParty"),
+    otherDeductions: safeAmount("#payrollOtherDeductions"),
+    workedDays: safeAmount("#payrollWorkedDays"),
   };
   const payroll = { id: uid("pay"), createdAt: new Date().toISOString(), ...values, ...calculatePayroll(values) };
 
   try {
     if (state.remoteReady) {
-      const { data, error } = await supabaseClient.from("payrolls").insert(toPayrollRow(payroll)).select().single();
+      let { data, error } = await supabaseClient.from("payrolls").insert(toPayrollRow(payroll)).select().single();
+      if (error && /column|schema cache/i.test(error.message || "")) {
+        ({ data, error } = await supabaseClient.from("payrolls").insert(toLegacyPayrollRow(payroll)).select().single());
+      }
       if (error) throw error;
-      state.payrolls.unshift(dbPayroll(data));
+      state.payrolls.unshift({ ...payroll, id: data.id, createdAt: data.created_at });
     } else {
       state.payrolls.unshift(payroll);
     }
@@ -596,25 +795,83 @@ async function submitPayroll(event) {
 
 function payrollDocument(payroll) {
   const employee = state.employees.find((item) => item.id === payroll.employeeId);
+  const company = state.company || { name: "Empresa", tax_id: "No disponible" };
+  const calculated = { ...payroll, ...calculatePayroll(payroll) };
+  const afp = PAYROLL_INDICATORS.afp[payroll.afp] || PAYROLL_INDICATORS.afp.modelo;
+  const liquido = calculated.netPay;
   return `
-    <h3>Liquidación de sueldo</h3>
-    <p><strong>Trabajador:</strong> ${employee?.name || "Empleado eliminado"}</p>
-    <p><strong>RUT / ID:</strong> ${employee?.rut || "No disponible"}</p>
-    <p><strong>Cargo:</strong> ${employee?.role || "No disponible"}</p>
-    <p><strong>Período:</strong> ${monthLabel(payroll.month)}</p>
-    <hr>
-    <p><strong>Haberes imponibles proporcionales:</strong> ${money(payroll.proportionalTaxable)}</p>
-    <p><strong>Haberes no imponibles:</strong> ${money(payroll.nonTaxable)}</p>
-    <p><strong>Total haberes:</strong> ${money(payroll.grossPay)}</p>
-    <p><strong>AFP referencial 10%:</strong> ${money(payroll.pension)}</p>
-    <p><strong>Salud referencial 7%:</strong> ${money(payroll.health)}</p>
-    <p><strong>Seguro cesantía referencial 0,6%:</strong> ${money(payroll.unemployment)}</p>
-    <p><strong>Otros descuentos:</strong> ${money(payroll.otherDeductions)}</p>
-    <p><strong>Total descuentos:</strong> ${money(payroll.totalDeductions)}</p>
-    <p><strong>Líquido a pago:</strong> ${money(payroll.netPay)}</p>
-    <p class="muted">Cálculo referencial editable según normativa, contratos y parámetros previsionales vigentes.</p>
-    <div class="signature">Firma empleador</div>
+    <article class="payroll-document">
+      <header class="payroll-title">LIQUIDACION SUELDO</header>
+      <section class="payroll-meta">
+        <span>EMPRESA</span><strong>${company.name}</strong>
+        <span>R.U.T.</span><strong>${company.tax_id || "No disponible"}</strong>
+      </section>
+      <section class="payroll-meta worker">
+        <span>TRABAJADOR</span><strong>${employee?.name || "Empleado eliminado"}</strong>
+        <span>RUT</span><strong>${employee?.rut || "No disponible"}</strong>
+        <span>MES</span><strong>${monthLabel(payroll.month)}</strong>
+      </section>
+      <p class="payroll-days"><strong>Días trabajados</strong> ${Number(payroll.workedDays || 30).toFixed(1)}</p>
+      <div class="payroll-columns payroll-head"><strong>HABERES</strong><strong>DESCUENTOS</strong></div>
+      <div class="payroll-columns">
+        <div>
+          ${payrollLine("SUELDO BASE", calculated.proportionalTaxable)}
+          ${payrollLine("BONO ESPECIAL", payroll.bonus)}
+          ${payrollLine("HORAS EXTRAS", payroll.overtime)}
+        </div>
+        <div>
+          ${payrollLine(`AFP ${afp.label.toUpperCase()}`, calculated.pension)}
+          ${payrollLine("SEG. CESANTIA", calculated.unemployment)}
+          ${payrollLine((payroll.healthProvider || "fonasa").toUpperCase(), calculated.health)}
+          ${payrollLine("ANTICIPO", payroll.advance)}
+        </div>
+      </div>
+      <div class="payroll-total payroll-columns">
+        ${payrollLine("TOTAL IMPONIBLE", calculated.totalTaxable, true)}
+        ${payrollLine("", calculated.totalLegalDeductions + calculated.incomeTax + Number(payroll.advance || 0), true)}
+      </div>
+      <div class="payroll-columns">
+        <div>
+          ${payrollLine("ASIG.FAMILIAR", payroll.familyAllowance)}
+          ${payrollLine("LOCOMOCION", payroll.transport)}
+          ${payrollLine("COLACION", payroll.meal)}
+        </div>
+        <div>
+          ${payrollLine("PRESTAMOS CUOTA", payroll.loan)}
+          ${payrollLine("DESCUENTO DE TERCEROS", payroll.thirdParty)}
+          ${payrollLine("OTROS DESCUENTOS", payroll.otherDeductions)}
+        </div>
+      </div>
+      <div class="payroll-total payroll-columns">
+        ${payrollLine("TOTAL HABER", calculated.grossPay, true)}
+        ${payrollLine("TOTAL DESCUENTOS", calculated.totalDeductions, true)}
+      </div>
+      <section class="payroll-tax">
+        <strong>CALCULO IMPUESTO UNICO</strong>
+        ${payrollLine("RENTA IMPONIBLE", calculated.totalTaxable)}
+        ${payrollLine("DESCTO.PREVISIONAL", calculated.totalLegalDeductions)}
+        ${payrollLine("BASE IMPONIBLE", calculated.incomeTaxBase)}
+        ${payrollLine("IMPUESTO A PAGAR**", calculated.incomeTax)}
+      </section>
+      <section class="payroll-employer">
+        <strong>APORTES EMPLEADOR (NO INCLUIDOS EN LIQUIDO)</strong>
+        ${payrollLine("SIS", calculated.employerSis)}
+        ${payrollLine("AFC EMPLEADOR", calculated.employerUnemployment)}
+        ${payrollLine("AFP EMPLEADOR", calculated.employerAfp)}
+        ${payrollLine("SEGURO SOCIAL", calculated.employerSocialSecurity)}
+        ${payrollLine("TOTAL APORTE EMPLEADOR", calculated.employerTotal, true)}
+      </section>
+      <section class="payroll-pay">
+        ${payrollLine("SUELDO LIQUIDO", calculated.netPay, true)}
+        ${payrollLine("ANTICIPOS", 0)}
+        ${payrollLine("LIQUIDO A PAGAR", liquido, true, "highlight")}
+      </section>
+    </article>
   `;
+}
+
+function payrollLine(label, value, strong = false, className = "") {
+  return `<p class="${strong ? "strong" : ""} ${className}"><span>${label}</span><span>$</span><b>${payrollMoney(value)}</b></p>`;
 }
 
 function showPayroll(id) {
@@ -664,7 +921,11 @@ async function submitCertificate(event) {
       state.certificates.unshift(certificate);
       els.certificatePreview.innerHTML = certificateDocument(certificate);
     }
-    renderAll();
+    renderMetrics();
+    renderEmployeeOptions();
+    renderPayrollDefaults();
+    renderPayrolls();
+    saveLocalState();
   } catch (error) {
     alert(`No se pudo emitir el certificado: ${error.message}`);
   }
@@ -817,7 +1078,6 @@ async function signIn(event) {
   }
 
   state.user = data.user;
-  els.authDialog.close();
   els.authForm.reset();
   setStatus("Conectando con Supabase...");
   await loadRemoteState();
@@ -834,7 +1094,7 @@ async function toggleAuth() {
     return;
   }
   els.authMessage.textContent = "";
-  els.authDialog.showModal();
+  setAuthUi();
 }
 
 els.navTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
@@ -855,7 +1115,6 @@ els.seedDataBtn.addEventListener("click", seedData);
 els.exportDataBtn.addEventListener("click", exportData);
 els.authBtn.addEventListener("click", toggleAuth);
 els.authForm.addEventListener("submit", signIn);
-els.closeAuthBtn.addEventListener("click", () => els.authDialog.close());
 els.printCertificateBtn.addEventListener("click", () => window.print());
 els.printPayrollBtn.addEventListener("click", () => {
   if (state.payrolls[0]) {
@@ -877,6 +1136,11 @@ els.payrollList.addEventListener("click", (event) => {
   const deleteId = event.target.dataset.deletePayroll;
   if (viewId) showPayroll(viewId);
   if (deleteId) deletePayroll(deleteId);
+});
+
+els.certificatePreview.addEventListener("click", (event) => {
+  const certificateId = event.target.dataset.viewCertificate;
+  if (certificateId) showCertificate(certificateId);
 });
 
 init();
