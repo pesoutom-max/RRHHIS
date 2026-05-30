@@ -175,6 +175,60 @@
                   <input id="employeePhone" name="phone" autocomplete="tel" placeholder="Ej: +56 9 1234 5678" />
                 </label>
                 <label>
+                  AFP
+                  <select id="employeeAfp" name="afp">
+                    <option value="modelo">Modelo</option>
+                    <option value="capital">Capital</option>
+                    <option value="cuprum">Cuprum</option>
+                    <option value="habitat">Habitat</option>
+                    <option value="planvital">PlanVital</option>
+                    <option value="provida">Provida</option>
+                    <option value="uno">Uno</option>
+                  </select>
+                </label>
+                <label>
+                  Sistema de salud
+                  <select id="employeeHealthProvider" name="healthProvider">
+                    <option value="fonasa">FONASA</option>
+                    <option value="isapre">ISAPRE</option>
+                  </select>
+                </label>
+                <label>
+                  Valor plan ISAPRE
+                  <input id="employeeHealthPlanAmount" name="healthPlanAmount" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Tipo de contrato
+                  <select id="employeeContractType" name="contractType">
+                    <option value="indefinite">Plazo indefinido</option>
+                    <option value="fixed">Plazo fijo</option>
+                  </select>
+                </label>
+                <label>
+                  Fecha término contrato
+                  <input id="employeeContractEndDate" name="contractEndDate" type="date" />
+                </label>
+                <label>
+                  Locomoción
+                  <input id="employeeTransportAllowance" name="transportAllowance" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Colación
+                  <input id="employeeMealAllowance" name="mealAllowance" type="number" min="0" step="1000" value="0" />
+                </label>
+                <label>
+                  Contacto emergencia
+                  <input id="employeeEmergencyName" name="emergencyName" placeholder="Nombre completo" />
+                </label>
+                <label>
+                  Parentesco
+                  <input id="employeeEmergencyRelationship" name="emergencyRelationship" placeholder="Ej: Cónyuge" />
+                </label>
+                <label>
+                  Fono emergencia
+                  <input id="employeeEmergencyPhone" name="emergencyPhone" autocomplete="tel" placeholder="Ej: +56 9 9876 5432" />
+                </label>
+                <label>
                   Clave de acceso
                   <input id="employeeAccountPassword" name="accountPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Solo si crearás acceso" />
                 </label>
@@ -258,37 +312,6 @@
                   <input id="payrollOvertime" type="number" min="0" step="1000" value="0" />
                 </label>
                 <label>
-                  Asignación familiar
-                  <input id="payrollFamilyAllowance" type="number" min="0" step="1000" value="0" />
-                </label>
-                <label>
-                  Locomoción
-                  <input id="payrollTransport" type="number" min="0" step="1000" value="0" />
-                </label>
-                <label>
-                  Colación
-                  <input id="payrollMeal" type="number" min="0" step="1000" value="0" />
-                </label>
-                <label>
-                  AFP
-                  <select id="payrollAfp">
-                    <option value="modelo">Modelo</option>
-                    <option value="capital">Capital</option>
-                    <option value="cuprum">Cuprum</option>
-                    <option value="habitat">Habitat</option>
-                    <option value="planvital">PlanVital</option>
-                    <option value="provida">Provida</option>
-                    <option value="uno">Uno</option>
-                  </select>
-                </label>
-                <label>
-                  Salud
-                  <select id="payrollHealthProvider">
-                    <option value="fonasa">FONASA</option>
-                    <option value="isapre">ISAPRE</option>
-                  </select>
-                </label>
-                <label>
                   Anticipo
                   <input id="payrollAdvance" type="number" min="0" step="1000" value="0" />
                 </label>
@@ -321,6 +344,9 @@
                 <button class="text-button subtle" type="button" id="printPayrollBtn">Imprimir última</button>
               </div>
               <div class="records-list" id="payrollList"></div>
+              <article class="document-preview payroll-preview" id="payrollPreview">
+                <p class="muted">Selecciona o genera una liquidación para verla aquí.</p>
+              </article>
             </section>
           </div>
         </section>

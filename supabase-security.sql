@@ -19,6 +19,18 @@ create table if not exists public.user_profiles (
   )
 );
 
+alter table public.employees
+  add column if not exists afp_code text not null default 'modelo',
+  add column if not exists health_provider text not null default 'fonasa',
+  add column if not exists health_plan_amount integer not null default 0,
+  add column if not exists contract_type text not null default 'indefinite',
+  add column if not exists contract_end_date date,
+  add column if not exists transport_allowance integer not null default 0,
+  add column if not exists meal_allowance integer not null default 0,
+  add column if not exists emergency_contact_name text,
+  add column if not exists emergency_contact_relationship text,
+  add column if not exists emergency_contact_phone text;
+
 alter table public.payrolls
   add column if not exists bonus_special integer not null default 0,
   add column if not exists overtime_pay integer not null default 0,
@@ -30,6 +42,8 @@ alter table public.payrolls
   add column if not exists third_party_deduction integer not null default 0,
   add column if not exists afp_code text not null default 'modelo',
   add column if not exists health_provider text not null default 'fonasa',
+  add column if not exists health_plan_amount integer not null default 0,
+  add column if not exists contract_type text not null default 'indefinite',
   add column if not exists employer_sis integer not null default 0,
   add column if not exists employer_unemployment integer not null default 0,
   add column if not exists employer_afp integer not null default 0,

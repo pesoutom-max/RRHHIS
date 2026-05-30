@@ -70,15 +70,11 @@ const els = {
   payrollTaxable: document.querySelector("#payrollTaxable"),
   payrollBonus: document.querySelector("#payrollBonus"),
   payrollOvertime: document.querySelector("#payrollOvertime"),
-  payrollFamilyAllowance: document.querySelector("#payrollFamilyAllowance"),
-  payrollTransport: document.querySelector("#payrollTransport"),
-  payrollMeal: document.querySelector("#payrollMeal"),
-  payrollAfp: document.querySelector("#payrollAfp"),
-  payrollHealthProvider: document.querySelector("#payrollHealthProvider"),
   payrollAdvance: document.querySelector("#payrollAdvance"),
   payrollLoan: document.querySelector("#payrollLoan"),
   payrollThirdParty: document.querySelector("#payrollThirdParty"),
   payrollList: document.querySelector("#payrollList"),
+  payrollPreview: document.querySelector("#payrollPreview"),
   printPayrollBtn: document.querySelector("#printPayrollBtn"),
   certificateForm: document.querySelector("#certificateForm"),
   certificateEmployee: document.querySelector("#certificateEmployee"),
@@ -253,6 +249,16 @@ function dbEmployee(row) {
     rut: row.rut,
     email: row.email || "",
     phone: row.phone || "",
+    afp: row.afp_code || "modelo",
+    healthProvider: row.health_provider || "fonasa",
+    healthPlanAmount: Number(row.health_plan_amount || 0),
+    contractType: row.contract_type || "indefinite",
+    contractEndDate: row.contract_end_date || "",
+    transportAllowance: Number(row.transport_allowance || 0),
+    mealAllowance: Number(row.meal_allowance || 0),
+    emergencyName: row.emergency_contact_name || "",
+    emergencyRelationship: row.emergency_contact_relationship || "",
+    emergencyPhone: row.emergency_contact_phone || "",
     role: row.position,
     department: row.department,
     startDate: row.start_date,
@@ -263,6 +269,32 @@ function dbEmployee(row) {
 }
 
 function toEmployeeRow(employee) {
+  return {
+    company_id: employee.companyId || state.company?.id || null,
+    full_name: employee.name,
+    rut: employee.rut,
+    email: employee.email || null,
+    phone: employee.phone || null,
+    afp_code: employee.afp || "modelo",
+    health_provider: employee.healthProvider || "fonasa",
+    health_plan_amount: employee.healthPlanAmount || 0,
+    contract_type: employee.contractType || "indefinite",
+    contract_end_date: employee.contractType === "fixed" ? employee.contractEndDate || null : null,
+    transport_allowance: employee.transportAllowance || 0,
+    meal_allowance: employee.mealAllowance || 0,
+    emergency_contact_name: employee.emergencyName || null,
+    emergency_contact_relationship: employee.emergencyRelationship || null,
+    emergency_contact_phone: employee.emergencyPhone || null,
+    position: employee.role,
+    department: employee.department,
+    start_date: employee.startDate,
+    base_salary: employee.salary,
+    vacation_days: employee.vacationDays,
+    status: employee.status,
+  };
+}
+
+function toLegacyEmployeeRow(employee) {
   return {
     company_id: employee.companyId || state.company?.id || null,
     full_name: employee.name,
@@ -303,6 +335,8 @@ function dbPayroll(row) {
     thirdParty: Number(row.third_party_deduction || 0),
     afp: row.afp_code || "modelo",
     healthProvider: row.health_provider || "fonasa",
+    healthPlanAmount: Number(row.health_plan_amount || 0),
+    contractType: row.contract_type || "indefinite",
     employerSis: Number(row.employer_sis || 0),
     employerUnemployment: Number(row.employer_unemployment || 0),
     employerAfp: Number(row.employer_afp || 0),
@@ -336,6 +370,8 @@ function toPayrollRow(payroll) {
     third_party_deduction: payroll.thirdParty,
     afp_code: payroll.afp,
     health_provider: payroll.healthProvider,
+    health_plan_amount: payroll.healthPlanAmount,
+    contract_type: payroll.contractType,
     employer_sis: payroll.employerSis,
     employer_unemployment: payroll.employerUnemployment,
     employer_afp: payroll.employerAfp,
@@ -470,7 +506,7 @@ function renderEmployeeList() {
   clearNode(els.employeeList);
   const query = els.employeeSearch.value.trim().toLowerCase();
   const employees = state.employees.filter((employee) => {
-    return [employee.name, employee.rut, employee.email, employee.phone, employee.role, employee.department, employee.status]
+    return [employee.name, employee.rut, employee.email, employee.phone, employee.afp, employee.healthProvider, employee.role, employee.department, employee.status]
       .join(" ")
       .toLowerCase()
       .includes(query);
@@ -485,10 +521,13 @@ function renderEmployeeList() {
     const item = document.createElement("article");
     item.className = "employee-item";
     const contact = [employee.email, employee.phone].filter(Boolean).join(" · ");
+    const afp = PAYROLL_INDICATORS.afp[employee.afp]?.label || "Modelo";
+    const health = employee.healthProvider === "isapre" ? `ISAPRE${employee.healthPlanAmount ? ` ${money(employee.healthPlanAmount)}` : ""}` : "FONASA";
+    const contract = employee.contractType === "fixed" ? `Plazo fijo hasta ${readableDate(employee.contractEndDate)}` : "Plazo indefinido";
     item.innerHTML = `
       <div>
         <span class="employee-name">${employee.name}</span>
-        <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${money(employee.salary)} · ${employee.vacationDays} días vacaciones</span>
+        <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${afp} · ${health} · ${contract}<br>${money(employee.salary)} · Locomoción ${money(employee.transportAllowance)} · Colación ${money(employee.mealAllowance)}</span>
       </div>
       <div class="item-actions" ${isAdmin() ? "" : "hidden"}>
         <button class="mini-button" type="button" title="Editar" aria-label="Editar ${employee.name}" data-edit="${employee.id}">✎</button>
@@ -611,6 +650,16 @@ async function submitEmployee(event) {
     rut: form.get("rut").trim(),
     email: form.get("email").trim(),
     phone: form.get("phone").trim(),
+    afp: form.get("afp"),
+    healthProvider: form.get("healthProvider"),
+    healthPlanAmount: Number(form.get("healthPlanAmount")),
+    contractType: form.get("contractType"),
+    contractEndDate: form.get("contractEndDate"),
+    transportAllowance: Number(form.get("transportAllowance")),
+    mealAllowance: Number(form.get("mealAllowance")),
+    emergencyName: form.get("emergencyName").trim(),
+    emergencyRelationship: form.get("emergencyRelationship").trim(),
+    emergencyPhone: form.get("emergencyPhone").trim(),
     role: form.get("role").trim(),
     department: form.get("department").trim(),
     startDate: form.get("startDate"),
@@ -621,10 +670,16 @@ async function submitEmployee(event) {
 
   try {
     if (state.remoteReady) {
-      const query = id
+      let query = id
         ? supabaseClient.from("employees").update(toEmployeeRow(employee)).eq("id", id).select().single()
         : supabaseClient.from("employees").insert(toEmployeeRow(employee)).select().single();
-      const { data, error } = await query;
+      let { data, error } = await query;
+      if (error && /column|schema cache/i.test(error.message || "")) {
+        query = id
+          ? supabaseClient.from("employees").update(toLegacyEmployeeRow(employee)).eq("id", id).select().single()
+          : supabaseClient.from("employees").insert(toLegacyEmployeeRow(employee)).select().single();
+        ({ data, error } = await query);
+      }
       if (error) throw error;
       employee.id = data.id;
       employee.companyId = data.company_id;
@@ -654,6 +709,16 @@ function editEmployee(id) {
   document.querySelector("#employeeRut").value = employee.rut;
   document.querySelector("#employeeEmail").value = employee.email || "";
   document.querySelector("#employeePhone").value = employee.phone || "";
+  document.querySelector("#employeeAfp").value = employee.afp || "modelo";
+  document.querySelector("#employeeHealthProvider").value = employee.healthProvider || "fonasa";
+  document.querySelector("#employeeHealthPlanAmount").value = employee.healthPlanAmount || 0;
+  document.querySelector("#employeeContractType").value = employee.contractType || "indefinite";
+  document.querySelector("#employeeContractEndDate").value = employee.contractEndDate || "";
+  document.querySelector("#employeeTransportAllowance").value = employee.transportAllowance || 0;
+  document.querySelector("#employeeMealAllowance").value = employee.mealAllowance || 0;
+  document.querySelector("#employeeEmergencyName").value = employee.emergencyName || "";
+  document.querySelector("#employeeEmergencyRelationship").value = employee.emergencyRelationship || "";
+  document.querySelector("#employeeEmergencyPhone").value = employee.emergencyPhone || "";
   document.querySelector("#employeeRole").value = employee.role;
   document.querySelector("#employeeDepartment").value = employee.department;
   document.querySelector("#employeeStartDate").value = employee.startDate;
@@ -688,6 +753,13 @@ async function deleteEmployee(id) {
 function resetEmployeeForm() {
   els.employeeForm.reset();
   document.querySelector("#employeeId").value = "";
+  document.querySelector("#employeeAfp").value = "modelo";
+  document.querySelector("#employeeHealthProvider").value = "fonasa";
+  document.querySelector("#employeeHealthPlanAmount").value = 0;
+  document.querySelector("#employeeContractType").value = "indefinite";
+  document.querySelector("#employeeContractEndDate").value = "";
+  document.querySelector("#employeeTransportAllowance").value = 0;
+  document.querySelector("#employeeMealAllowance").value = 0;
   document.querySelector("#employeeVacationDays").value = 15;
   document.querySelector("#employeeStatus").value = "Activo";
   els.employeeFormTitle.textContent = "Nuevo empleado";
@@ -695,14 +767,18 @@ function resetEmployeeForm() {
 }
 
 function calculatePayroll(values) {
-  const afp = PAYROLL_INDICATORS.afp[values.afp] || PAYROLL_INDICATORS.afp.modelo;
-  const unemploymentRules = PAYROLL_INDICATORS.unemployment.indefinite;
+  const employee = state.employees.find((item) => item.id === values.employeeId);
+  const employeeAfp = values.afp || employee?.afp || "modelo";
+  const healthProvider = values.healthProvider || employee?.healthProvider || "fonasa";
+  const contractType = values.contractType || employee?.contractType || "indefinite";
+  const afpRules = PAYROLL_INDICATORS.afp[employeeAfp] || PAYROLL_INDICATORS.afp.modelo;
+  const unemploymentRules = contractType === "fixed" ? PAYROLL_INDICATORS.unemployment.fixed : PAYROLL_INDICATORS.unemployment.indefinite;
   const taxable = Number(values.taxable) || 0;
   const bonus = Number(values.bonus) || 0;
   const overtime = Number(values.overtime) || 0;
   const familyAllowance = Number(values.familyAllowance) || 0;
-  const transport = Number(values.transport) || 0;
-  const meal = Number(values.meal) || 0;
+  const transport = Number(values.transport ?? employee?.transportAllowance) || 0;
+  const meal = Number(values.meal ?? employee?.mealAllowance) || 0;
   const advance = Number(values.advance) || 0;
   const loan = Number(values.loan) || 0;
   const thirdParty = Number(values.thirdParty) || 0;
@@ -712,8 +788,9 @@ function calculatePayroll(values) {
   const totalTaxable = proportionalTaxable + bonus + overtime;
   const cappedTaxable = Math.min(totalTaxable, PAYROLL_INDICATORS.taxableCap);
   const cappedUnemployment = Math.min(totalTaxable, PAYROLL_INDICATORS.unemploymentCap);
-  const pension = Math.round(cappedTaxable * afp.workerRate);
-  const health = Math.round(cappedTaxable * PAYROLL_INDICATORS.healthRate);
+  const pension = Math.round(cappedTaxable * afpRules.workerRate);
+  const legalHealth = Math.round(cappedTaxable * PAYROLL_INDICATORS.healthRate);
+  const health = healthProvider === "isapre" ? Math.max(legalHealth, Number(values.healthPlanAmount ?? employee?.healthPlanAmount) || 0) : legalHealth;
   const unemployment = Math.round(cappedUnemployment * unemploymentRules.workerRate);
   const totalLegalDeductions = pension + health + unemployment;
   const incomeTaxBase = Math.max(totalTaxable - totalLegalDeductions, 0);
@@ -725,7 +802,7 @@ function calculatePayroll(values) {
   const netPay = grossPay - totalDeductions;
   const employerSis = Math.round(cappedTaxable * PAYROLL_INDICATORS.sisRate);
   const employerUnemployment = Math.round(cappedUnemployment * unemploymentRules.employerRate);
-  const employerAfp = Math.round(cappedTaxable * afp.employerRate);
+  const employerAfp = Math.round(cappedTaxable * afpRules.employerRate);
   const employerSocialSecurity = Math.round(cappedTaxable * PAYROLL_INDICATORS.employerSocialSecurityRate);
   const employerTotal = employerSis + employerUnemployment + employerAfp + employerSocialSecurity;
 
@@ -756,6 +833,8 @@ async function submitPayroll(event) {
   event.preventDefault();
   if (!requireSignedIn() || !requireAdmin()) return;
   if (!state.employees.length) return;
+  const employee = state.employees.find((item) => item.id === els.payrollEmployee.value);
+  if (!employee) return;
 
   const values = {
     employeeId: els.payrollEmployee.value,
@@ -763,11 +842,13 @@ async function submitPayroll(event) {
     taxable: safeAmount("#payrollTaxable"),
     bonus: safeAmount("#payrollBonus"),
     overtime: safeAmount("#payrollOvertime"),
-    familyAllowance: safeAmount("#payrollFamilyAllowance"),
-    transport: safeAmount("#payrollTransport"),
-    meal: safeAmount("#payrollMeal"),
-    afp: els.payrollAfp.value,
-    healthProvider: els.payrollHealthProvider.value,
+    familyAllowance: 0,
+    transport: employee?.transportAllowance || 0,
+    meal: employee?.mealAllowance || 0,
+    afp: employee?.afp || "modelo",
+    healthProvider: employee?.healthProvider || "fonasa",
+    healthPlanAmount: employee?.healthPlanAmount || 0,
+    contractType: employee?.contractType || "indefinite",
     advance: safeAmount("#payrollAdvance"),
     loan: safeAmount("#payrollLoan"),
     thirdParty: safeAmount("#payrollThirdParty"),
@@ -787,6 +868,7 @@ async function submitPayroll(event) {
     } else {
       state.payrolls.unshift(payroll);
     }
+    els.payrollPreview.innerHTML = payrollDocument(state.payrolls[0]);
     renderAll();
   } catch (error) {
     alert(`No se pudo generar la liquidación: ${error.message}`);
@@ -798,6 +880,7 @@ function payrollDocument(payroll) {
   const company = state.company || { name: "Empresa", tax_id: "No disponible" };
   const calculated = { ...payroll, ...calculatePayroll(payroll) };
   const afp = PAYROLL_INDICATORS.afp[payroll.afp] || PAYROLL_INDICATORS.afp.modelo;
+  const healthLabel = payroll.healthProvider === "isapre" ? "ISAPRE" : "FONASA";
   const liquido = calculated.netPay;
   return `
     <article class="payroll-document">
@@ -822,7 +905,7 @@ function payrollDocument(payroll) {
         <div>
           ${payrollLine(`AFP ${afp.label.toUpperCase()}`, calculated.pension)}
           ${payrollLine("SEG. CESANTIA", calculated.unemployment)}
-          ${payrollLine((payroll.healthProvider || "fonasa").toUpperCase(), calculated.health)}
+          ${payrollLine(healthLabel, calculated.health)}
           ${payrollLine("ANTICIPO", payroll.advance)}
         </div>
       </div>
@@ -877,8 +960,8 @@ function payrollLine(label, value, strong = false, className = "") {
 function showPayroll(id) {
   const payroll = state.payrolls.find((item) => item.id === id);
   if (!payroll) return;
-  setView("certificates");
-  els.certificatePreview.innerHTML = payrollDocument(payroll);
+  setView("payroll");
+  els.payrollPreview.innerHTML = payrollDocument(payroll);
 }
 
 async function deletePayroll(id) {
@@ -958,6 +1041,16 @@ async function seedData() {
       rut: "12.345.678-9",
       email: "camila@empresa.cl",
       phone: "+56 9 1234 5678",
+      afp: "modelo",
+      healthProvider: "fonasa",
+      healthPlanAmount: 0,
+      contractType: "indefinite",
+      contractEndDate: "",
+      transportAllowance: 50000,
+      mealAllowance: 50000,
+      emergencyName: "Juan Araya",
+      emergencyRelationship: "Padre",
+      emergencyPhone: "+56 9 1111 2222",
       role: "Analista de personas",
       department: "Recursos Humanos",
       startDate: "2023-03-01",
@@ -971,6 +1064,16 @@ async function seedData() {
       rut: "18.456.111-2",
       email: "matias@empresa.cl",
       phone: "+56 9 8765 4321",
+      afp: "capital",
+      healthProvider: "isapre",
+      healthPlanAmount: 120000,
+      contractType: "indefinite",
+      contractEndDate: "",
+      transportAllowance: 60000,
+      mealAllowance: 55000,
+      emergencyName: "Andrea Rojas",
+      emergencyRelationship: "Cónyuge",
+      emergencyPhone: "+56 9 3333 4444",
       role: "Coordinador de operaciones",
       department: "Operaciones",
       startDate: "2022-08-15",
@@ -984,6 +1087,16 @@ async function seedData() {
       rut: "16.789.432-1",
       email: "daniela@empresa.cl",
       phone: "+56 9 2222 3333",
+      afp: "uno",
+      healthProvider: "fonasa",
+      healthPlanAmount: 0,
+      contractType: "fixed",
+      contractEndDate: "2024-12-31",
+      transportAllowance: 45000,
+      mealAllowance: 45000,
+      emergencyName: "Paula Vera",
+      emergencyRelationship: "Madre",
+      emergencyPhone: "+56 9 5555 6666",
       role: "Ejecutiva comercial",
       department: "Ventas",
       startDate: "2024-01-10",
@@ -1118,8 +1231,8 @@ els.authForm.addEventListener("submit", signIn);
 els.printCertificateBtn.addEventListener("click", () => window.print());
 els.printPayrollBtn.addEventListener("click", () => {
   if (state.payrolls[0]) {
-    els.certificatePreview.innerHTML = payrollDocument(state.payrolls[0]);
-    setView("certificates");
+    els.payrollPreview.innerHTML = payrollDocument(state.payrolls[0]);
+    setView("payroll");
     window.print();
   }
 });
