@@ -67,13 +67,15 @@
             <span aria-hidden="true">▤</span>
             Certificados
           </button>
+          <button class="nav-tab" type="button" data-view="accounting">
+            <span aria-hidden="true">≡</span>
+            Resumen contable
+          </button>
         </nav>
 
         <div class="topbar-actions">
           <span class="user-chip" id="currentUser">Sin sesión</span>
           <button class="text-button" type="button" id="authBtn">Ingresar</button>
-          <button class="icon-button" type="button" id="seedDataBtn" title="Cargar datos de ejemplo" aria-label="Cargar datos de ejemplo">＋</button>
-          <button class="icon-button" type="button" id="exportDataBtn" title="Exportar datos" aria-label="Exportar datos">⇩</button>
         </div>
       </header>
 
@@ -425,12 +427,13 @@
                 <summary>
                   <span>
                     <span class="eyebrow">Emisión</span>
-                    <strong>Nuevo certificado</strong>
+                    <strong id="certificateFormTitle">Nuevo certificado</strong>
                   </span>
                   <span class="summary-icon" aria-hidden="true">⌄</span>
                 </summary>
 
                 <form id="certificateForm" class="form-grid">
+                  <input id="certificateId" type="hidden" />
                   <label>
                     Tipo
                     <select id="certificateType">
@@ -455,6 +458,7 @@
                     <textarea id="certificateNotes" rows="4" placeholder="Ej: Autorizado por jefatura directa"></textarea>
                   </label>
                   <button class="primary-button full" type="submit">Guardar certificado</button>
+                  <button class="text-button subtle full hidden" type="button" id="cancelCertificateEditBtn">Cancelar edición</button>
                 </form>
               </details>
             </section>
@@ -472,6 +476,22 @@
               </article>
             </section>
           </div>
+        </section>
+
+        <section class="view" id="accountingView" data-title="Resumen contable mensual">
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Contabilidad</p>
+                <h2>Resumen contable mensual</h2>
+              </div>
+              <label class="compact-field">
+                Mes
+                <input id="accountingMonth" type="month" />
+              </label>
+            </div>
+            <div class="accounting-summary" id="accountingSummary"></div>
+          </section>
         </section>
       </main>
     </div>

@@ -85,11 +85,16 @@ const els = {
   payrollPreview: document.querySelector("#payrollPreview"),
   printPayrollBtn: document.querySelector("#printPayrollBtn"),
   certificateForm: document.querySelector("#certificateForm"),
+  certificateId: document.querySelector("#certificateId"),
+  certificateFormTitle: document.querySelector("#certificateFormTitle"),
   certificateEmployee: document.querySelector("#certificateEmployee"),
   certificatePreview: document.querySelector("#certificatePreview"),
+  cancelCertificateEditBtn: document.querySelector("#cancelCertificateEditBtn"),
   printCertificateBtn: document.querySelector("#printCertificateBtn"),
   seedDataBtn: document.querySelector("#seedDataBtn"),
   exportDataBtn: document.querySelector("#exportDataBtn"),
+  accountingMonth: document.querySelector("#accountingMonth"),
+  accountingSummary: document.querySelector("#accountingSummary"),
   appShell: document.querySelector("#appShell"),
   loginScreen: document.querySelector("#loginScreen"),
   authBtn: document.querySelector("#authBtn"),
@@ -192,8 +197,8 @@ function setAuthUi() {
   els.appShell.classList.toggle("hidden", !signedIn);
   els.authBtn.textContent = signedIn ? "Salir" : "Ingresar";
   els.currentUser.textContent = signedIn ? `${state.user.email} · ${admin ? "Admin" : "Personal"}` : "Sin sesión";
-  els.seedDataBtn.disabled = !admin;
-  els.exportDataBtn.disabled = !signedIn;
+  if (els.seedDataBtn) els.seedDataBtn.disabled = !admin;
+  if (els.exportDataBtn) els.exportDataBtn.disabled = !signedIn;
   els.printCertificateBtn.disabled = !signedIn;
   els.printPayrollBtn.disabled = !signedIn;
   [els.employeeForm, els.payrollForm, els.certificateForm].forEach((form) => {
@@ -202,7 +207,7 @@ function setAuthUi() {
     });
   });
   els.navTabs.forEach((tab) => {
-    const employeeOnlyHidden = !admin && tab.dataset.view === "employees";
+    const employeeOnlyHidden = !admin && ["employees", "accounting"].includes(tab.dataset.view);
     tab.hidden = employeeOnlyHidden;
   });
   document.querySelectorAll("[data-admin-only]").forEach((node) => {
@@ -261,6 +266,7 @@ async function loadProfile() {
 function setView(view) {
   if (!state.user) return;
   if (!isAdmin() && view === "employees") view = "dashboard";
+  if (!isAdmin() && view === "accounting") view = "dashboard";
   els.views.forEach((viewEl) => viewEl.classList.toggle("active", viewEl.id === `${view}View`));
   els.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
   const activeView = document.querySelector(`#${view}View`);
@@ -528,6 +534,7 @@ function renderAll() {
   renderPayrollDefaults();
   renderPayrolls();
   renderCertificates();
+  renderAccountingSummary();
   saveLocalState();
 }
 
@@ -697,7 +704,8 @@ function renderEmployeeList() {
     const health = employee.healthProvider === "isapre" ? `ISAPRE${employee.healthPlanAmount ? ` ${money(employee.healthPlanAmount)}` : ""}` : "FONASA";
     const contract = employee.contractType === "fixed" ? `Plazo fijo hasta ${readableDate(employee.contractEndDate)}` : "Plazo indefinido";
     const employeeCertificates = state.certificates.filter((certificate) => certificate.employeeId === employee.id);
-    const history = employeeCertificates.length
+    const employeePayrolls = state.payrolls.filter((payroll) => payroll.employeeId === employee.id);
+    const certificateHistory = employeeCertificates.length
       ? `
         <details class="employee-history">
           <summary>Historial de certificados · ${employeeCertificates.length}</summary>
@@ -717,11 +725,32 @@ function renderEmployeeList() {
         </details>
       `
       : `<span class="employee-history-empty">Sin certificados guardados</span>`;
+    const payrollHistory = employeePayrolls.length
+      ? `
+        <details class="employee-history">
+          <summary>Historial de liquidaciones · ${employeePayrolls.length}</summary>
+          <div class="history-list">
+            ${employeePayrolls
+              .slice(0, 5)
+              .map(
+                (payroll) => `
+                  <button class="history-item" type="button" data-view-payroll="${payroll.id}">
+                    <span>${monthLabel(payroll.month)}</span>
+                    <small>Líquido ${money(payroll.netPay)} · Imponible ${money(payroll.totalTaxable || payroll.taxable)}</small>
+                  </button>
+                `,
+              )
+              .join("")}
+          </div>
+        </details>
+      `
+      : `<span class="employee-history-empty">Sin liquidaciones guardadas</span>`;
     item.innerHTML = `
       <div>
         <span class="employee-name">${employee.name}</span>
         <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${address}${bank ? `Depósito: ${bank}<br>` : ""}${afp} · ${health} · ${contract}<br>${money(employee.salary)} · Vacaciones ${Number(employee.vacationDays || 0).toLocaleString("es-CL")} día(s) · Locomoción ${money(employee.transportAllowance)} · Colación ${money(employee.mealAllowance)}</span>
-        ${history}
+        ${payrollHistory}
+        ${certificateHistory}
       </div>
       <div class="item-actions" ${isAdmin() ? "" : "hidden"}>
         <button class="mini-button" type="button" title="Editar" aria-label="Editar ${employee.name}" data-edit="${employee.id}">✎</button>
@@ -842,6 +871,99 @@ function renderPayrolls() {
   });
 }
 
+function payrollValue(payroll, key) {
+  const calculated = calculatePayroll(payroll);
+  return Number(payroll[key] ?? calculated[key] ?? 0);
+}
+
+function renderAccountingSummary() {
+  if (!els.accountingSummary) return;
+  if (!els.accountingMonth.value) els.accountingMonth.value = currentMonthKey();
+  const month = els.accountingMonth.value;
+  const payrolls = visiblePayrolls().filter((payroll) => payroll.month === month);
+  const summary = payrolls.reduce(
+    (totals, payroll) => {
+      const calculated = calculatePayroll(payroll);
+      totals.taxable += Number(payroll.totalTaxable ?? calculated.totalTaxable ?? payroll.taxable ?? 0);
+      totals.nonTaxable += Number(payroll.nonTaxable ?? calculated.nonTaxable ?? 0);
+      totals.personalContributions += Number(payroll.pension ?? calculated.pension ?? 0) + Number(payroll.health ?? calculated.health ?? 0) + Number(payroll.unemployment ?? calculated.unemployment ?? 0);
+      totals.incomeTax += Number(payroll.incomeTax ?? calculated.incomeTax ?? 0);
+      totals.otherDeductions += Number(payroll.totalOtherDeductions ?? calculated.totalOtherDeductions ?? 0);
+      totals.employerContributions += Number(payroll.employerTotal ?? calculated.employerTotal ?? 0);
+      totals.netPay += Number(payroll.netPay ?? calculated.netPay ?? 0);
+      return totals;
+    },
+    { taxable: 0, nonTaxable: 0, personalContributions: 0, incomeTax: 0, otherDeductions: 0, employerContributions: 0, netPay: 0 },
+  );
+
+  const rows = [
+    ["Bruto imponible", summary.taxable],
+    ["Total no imponible", summary.nonTaxable],
+    ["Descuento imposiciones personal", summary.personalContributions],
+    ["Impuesto único", summary.incomeTax],
+    ["Otros descuentos", summary.otherDeductions],
+    ["Aportes del empleador", summary.employerContributions],
+    ["Total líquido pagado", summary.netPay],
+  ];
+
+  els.accountingSummary.innerHTML = `
+    <div class="accounting-total">
+      <span>${monthLabel(month)}</span>
+      <strong>${money(summary.netPay)}</strong>
+      <small>${payrolls.length} liquidación(es) consideradas</small>
+    </div>
+    <div class="accounting-grid">
+      ${rows
+        .map(
+          ([label, value]) => `
+            <article class="accounting-card">
+              <span>${label}</span>
+              <strong>${money(value)}</strong>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+    ${
+      payrolls.length
+        ? `<div class="table-wrap accounting-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th>Imponible</th>
+                  <th>No imponible</th>
+                  <th>Imposiciones</th>
+                  <th>Aporte empleador</th>
+                  <th>Líquido</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${payrolls
+                  .map((payroll) => {
+                    const employee = state.employees.find((item) => item.id === payroll.employeeId);
+                    const calculated = calculatePayroll(payroll);
+                    const personal = Number(payroll.pension ?? calculated.pension ?? 0) + Number(payroll.health ?? calculated.health ?? 0) + Number(payroll.unemployment ?? calculated.unemployment ?? 0);
+                    return `
+                      <tr>
+                        <td>${employee?.name || "Empleado eliminado"}</td>
+                        <td>${money(payroll.totalTaxable ?? calculated.totalTaxable ?? payroll.taxable)}</td>
+                        <td>${money(payroll.nonTaxable ?? calculated.nonTaxable)}</td>
+                        <td>${money(personal)}</td>
+                        <td>${money(payroll.employerTotal ?? calculated.employerTotal)}</td>
+                        <td>${money(payroll.netPay ?? calculated.netPay)}</td>
+                      </tr>
+                    `;
+                  })
+                  .join("")}
+              </tbody>
+            </table>
+          </div>`
+        : `<div class="empty-state"><strong>Sin liquidaciones para este mes</strong><span>Genera liquidaciones para completar el resumen contable.</span></div>`
+    }
+  `;
+}
+
 function renderCertificates() {
   if (!state.certificates.length) {
     els.certificatePreview.innerHTML = `<p class="muted">No hay certificados emitidos todavía.</p>`;
@@ -861,6 +983,8 @@ function renderCertificates() {
               </div>
               <div class="item-actions">
                 <button class="mini-button" type="button" title="Ver" aria-label="Ver certificado" data-view-certificate="${certificate.id}">▤</button>
+                <button class="mini-button" type="button" title="Editar" aria-label="Editar certificado" data-edit-certificate="${certificate.id}" ${isAdmin() ? "" : "hidden"}>✎</button>
+                <button class="mini-button danger" type="button" title="Eliminar" aria-label="Eliminar certificado" data-delete-certificate="${certificate.id}" ${isAdmin() ? "" : "hidden"}>×</button>
               </div>
             </article>
           `;
@@ -875,6 +999,65 @@ function showCertificate(id) {
   if (!certificate) return;
   els.certificatePreview.innerHTML = certificateDocument(certificate);
   setView("certificates");
+}
+
+function certificateVacationDays(certificate) {
+  return certificate?.type === "vacaciones" ? Number(certificate.days || businessDaysBetween(certificate.start, certificate.end) || 0) : 0;
+}
+
+async function saveEmployeeVacationBalance(employee, vacationDays) {
+  const updatedEmployee = { ...employee, vacationDays: Math.max(Number(vacationDays || 0), 0) };
+  const persistedEmployee = await persistEmployee(updatedEmployee);
+  const index = state.employees.findIndex((item) => item.id === employee.id);
+  if (index >= 0) state.employees[index] = persistedEmployee;
+  return persistedEmployee;
+}
+
+function resetCertificateForm() {
+  els.certificateForm.reset();
+  els.certificateId.value = "";
+  els.certificateFormTitle.textContent = "Nuevo certificado";
+  els.cancelCertificateEditBtn.classList.add("hidden");
+}
+
+function editCertificate(id) {
+  const certificate = state.certificates.find((item) => item.id === id);
+  if (!certificate) return;
+  els.certificateId.value = certificate.id;
+  document.querySelector("#certificateType").value = certificate.type;
+  els.certificateEmployee.value = certificate.employeeId;
+  document.querySelector("#certificateStart").value = certificate.start;
+  document.querySelector("#certificateEnd").value = certificate.end;
+  document.querySelector("#certificateNotes").value = certificate.notes || "";
+  els.certificateFormTitle.textContent = "Editar certificado";
+  els.cancelCertificateEditBtn.classList.remove("hidden");
+  els.certificatePreview.innerHTML = certificateDocument(certificate);
+  setView("certificates");
+}
+
+async function deleteCertificate(id) {
+  if (!requireSignedIn() || !requireAdmin()) return;
+  const certificate = state.certificates.find((item) => item.id === id);
+  if (!certificate) return;
+  const employee = state.employees.find((item) => item.id === certificate.employeeId);
+  const confirmed = window.confirm("¿Eliminar este certificado del historial del empleado?");
+  if (!confirmed) return;
+
+  try {
+    if (employee) {
+      await saveEmployeeVacationBalance(employee, Number(employee.vacationDays || 0) + certificateVacationDays(certificate));
+    }
+    if (state.remoteReady) {
+      const { error } = await supabaseClient.from("certificates").delete().eq("id", id);
+      if (error) throw error;
+    }
+    state.certificates = state.certificates.filter((item) => item.id !== id);
+    resetCertificateForm();
+    renderAll();
+    setView("employees");
+  } catch (error) {
+    alert(`No se pudo eliminar el certificado: ${error.message}`);
+  }
 }
 
 async function persistEmployee(employee) {
@@ -1276,6 +1459,8 @@ async function deletePayroll(id) {
 async function submitCertificate(event) {
   event.preventDefault();
   if (!requireSignedIn() || !requireAdmin()) return;
+  const editId = els.certificateId.value;
+  const previousCertificate = editId ? state.certificates.find((item) => item.id === editId) : null;
   const employee = state.employees.find((item) => item.id === els.certificateEmployee.value);
   if (!employee) return;
   const type = document.querySelector("#certificateType").value;
@@ -1286,13 +1471,15 @@ async function submitCertificate(event) {
     return;
   }
   const vacationDays = type === "vacaciones" ? businessDaysBetween(start, end) : 0;
-  if (vacationDays > Number(employee.vacationDays || 0)) {
-    const confirmed = window.confirm(`El certificado descuenta ${vacationDays} día(s), pero ${employee.name} tiene ${Number(employee.vacationDays || 0).toLocaleString("es-CL")} disponible(s). ¿Guardar de todos modos?`);
+  const previousDays = certificateVacationDays(previousCertificate);
+  const availableDays = Number(employee.vacationDays || 0) + (previousCertificate?.employeeId === employee.id ? previousDays : 0);
+  if (vacationDays > availableDays) {
+    const confirmed = window.confirm(`El certificado descuenta ${vacationDays} día(s), pero ${employee.name} tiene ${availableDays.toLocaleString("es-CL")} disponible(s). ¿Guardar de todos modos?`);
     if (!confirmed) return;
   }
 
   const certificate = {
-    id: uid("cert"),
+    id: editId || uid("cert"),
     type,
     employeeId: employee.id,
     start,
@@ -1305,24 +1492,30 @@ async function submitCertificate(event) {
   try {
     let savedCertificate = certificate;
     if (state.remoteReady) {
-      const { data, error } = await supabaseClient.from("certificates").insert(toCertificateRow(certificate)).select().single();
+      const query = editId
+        ? supabaseClient.from("certificates").update(toCertificateRow(certificate)).eq("id", editId).select().single()
+        : supabaseClient.from("certificates").insert(toCertificateRow(certificate)).select().single();
+      const { data, error } = await query;
       if (error) throw error;
       savedCertificate = { ...dbCertificate(data), days: vacationDays };
     }
 
+    if (previousCertificate) {
+      const previousEmployee = state.employees.find((item) => item.id === previousCertificate.employeeId);
+      if (previousEmployee && previousDays > 0) {
+        await saveEmployeeVacationBalance(previousEmployee, Number(previousEmployee.vacationDays || 0) + previousDays);
+      }
+      state.certificates = state.certificates.filter((item) => item.id !== previousCertificate.id);
+    }
+
+    const currentEmployee = state.employees.find((item) => item.id === employee.id) || employee;
     if (type === "vacaciones" && vacationDays > 0) {
-      const updatedEmployee = {
-        ...employee,
-        vacationDays: Math.max(Number(employee.vacationDays || 0) - vacationDays, 0),
-      };
-      const persistedEmployee = await persistEmployee(updatedEmployee);
-      const index = state.employees.findIndex((item) => item.id === employee.id);
-      if (index >= 0) state.employees[index] = persistedEmployee;
+      await saveEmployeeVacationBalance(currentEmployee, Number(currentEmployee.vacationDays || 0) - vacationDays);
     }
 
     state.certificates.unshift(savedCertificate);
     els.certificatePreview.innerHTML = certificateDocument(savedCertificate);
-    els.certificateForm.reset();
+    resetCertificateForm();
     renderAll();
     setView("employees");
     saveLocalState();
@@ -1570,8 +1763,10 @@ els.payrollOvertimeMultiplier.addEventListener("change", applyOvertimeCalculatio
 els.calculateOvertimeBtn.addEventListener("click", applyOvertimeCalculation);
 els.payrollForm.addEventListener("submit", submitPayroll);
 els.certificateForm.addEventListener("submit", submitCertificate);
-els.seedDataBtn.addEventListener("click", seedData);
-els.exportDataBtn.addEventListener("click", exportData);
+els.cancelCertificateEditBtn.addEventListener("click", resetCertificateForm);
+els.accountingMonth.addEventListener("change", renderAccountingSummary);
+els.seedDataBtn?.addEventListener("click", seedData);
+els.exportDataBtn?.addEventListener("click", exportData);
 els.authBtn.addEventListener("click", toggleAuth);
 els.authForm.addEventListener("submit", signIn);
 els.printCertificateBtn.addEventListener("click", () => window.print());
@@ -1582,13 +1777,15 @@ els.operationalAlerts?.addEventListener("click", (event) => {
 });
 
 els.employeeList.addEventListener("click", (event) => {
-  const target = event.target.closest("[data-edit], [data-delete], [data-view-certificate]");
+  const target = event.target.closest("[data-edit], [data-delete], [data-view-certificate], [data-view-payroll]");
   const editId = target?.dataset.edit;
   const deleteId = target?.dataset.delete;
   const certificateId = target?.dataset.viewCertificate;
+  const payrollId = target?.dataset.viewPayroll;
   if (editId) editEmployee(editId);
   if (deleteId) deleteEmployee(deleteId);
   if (certificateId) showCertificate(certificateId);
+  if (payrollId) showPayroll(payrollId);
 });
 
 els.payrollList.addEventListener("click", (event) => {
@@ -1601,8 +1798,13 @@ els.payrollList.addEventListener("click", (event) => {
 });
 
 els.certificatePreview.addEventListener("click", (event) => {
-  const certificateId = event.target.dataset.viewCertificate;
+  const target = event.target.closest("[data-view-certificate], [data-edit-certificate], [data-delete-certificate]");
+  const certificateId = target?.dataset.viewCertificate;
+  const editId = target?.dataset.editCertificate;
+  const deleteId = target?.dataset.deleteCertificate;
   if (certificateId) showCertificate(certificateId);
+  if (editId) editCertificate(editId);
+  if (deleteId) deleteCertificate(deleteId);
 });
 
 init();

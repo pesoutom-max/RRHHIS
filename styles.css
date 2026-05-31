@@ -610,6 +610,62 @@ h2,
   justify-self: start;
 }
 
+.compact-field {
+  min-width: 180px;
+}
+
+.accounting-summary {
+  display: grid;
+  gap: 18px;
+}
+
+.accounting-total {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid rgba(42, 157, 157, 0.32);
+  border-radius: 8px;
+  background: rgba(42, 157, 157, 0.08);
+}
+
+.accounting-total span,
+.accounting-total small,
+.accounting-card span {
+  color: var(--muted);
+}
+
+.accounting-total strong {
+  font-family: var(--title-font);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1;
+}
+
+.accounting-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.accounting-card {
+  display: grid;
+  gap: 8px;
+  min-height: 118px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.accounting-card strong {
+  font-family: var(--title-font);
+  font-size: 1.35rem;
+}
+
+.accounting-table {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 .table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -1175,7 +1231,7 @@ textarea:focus {
     grid-column: 1 / -1;
     order: 3;
     display: none;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     width: 100%;
     padding-top: 10px;
   }
@@ -1202,6 +1258,7 @@ textarea:focus {
 
   .metrics-grid,
   .operations-grid,
+  .accounting-grid,
   .dashboard-layout,
   .split-layout {
     grid-template-columns: 1fr 1fr;
@@ -1240,6 +1297,7 @@ textarea:focus {
   .nav-tabs,
   .metrics-grid,
   .operations-grid,
+  .accounting-grid,
   .dashboard-layout,
   .split-layout,
   .form-grid,
