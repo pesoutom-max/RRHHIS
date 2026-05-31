@@ -281,6 +281,7 @@ function dbEmployee(row) {
     rut: row.rut,
     email: row.email || "",
     phone: row.phone || "",
+    address: row.address || "",
     afp: row.afp_code || "modelo",
     healthProvider: row.health_provider || "fonasa",
     healthPlanAmount: Number(row.health_plan_amount || 0),
@@ -307,6 +308,7 @@ function toEmployeeRow(employee) {
     rut: employee.rut,
     email: employee.email || null,
     phone: employee.phone || null,
+    address: employee.address || null,
     afp_code: employee.afp || "modelo",
     health_provider: employee.healthProvider || "fonasa",
     health_plan_amount: employee.healthPlanAmount || 0,
@@ -552,6 +554,7 @@ function incompleteEmployeeFields(employee) {
   return [
     ["email", employee.email],
     ["telefono", employee.phone],
+    ["dirección", employee.address],
     ["AFP", employee.afp],
     ["salud", employee.healthProvider],
     ["contacto emergencia", employee.emergencyName],
@@ -638,7 +641,7 @@ function renderEmployeeList() {
   clearNode(els.employeeList);
   const query = els.employeeSearch.value.trim().toLowerCase();
   const employees = visibleEmployees().filter((employee) => {
-    return [employee.name, employee.rut, employee.email, employee.phone, employee.afp, employee.healthProvider, employee.role, employee.department, employee.status]
+    return [employee.name, employee.rut, employee.email, employee.phone, employee.address, employee.afp, employee.healthProvider, employee.role, employee.department, employee.status]
       .join(" ")
       .toLowerCase()
       .includes(query);
@@ -653,13 +656,14 @@ function renderEmployeeList() {
     const item = document.createElement("article");
     item.className = "employee-item";
     const contact = [employee.email, employee.phone].filter(Boolean).join(" · ");
+    const address = employee.address ? `${employee.address}<br>` : "";
     const afp = PAYROLL_INDICATORS.afp[employee.afp]?.label || "Modelo";
     const health = employee.healthProvider === "isapre" ? `ISAPRE${employee.healthPlanAmount ? ` ${money(employee.healthPlanAmount)}` : ""}` : "FONASA";
     const contract = employee.contractType === "fixed" ? `Plazo fijo hasta ${readableDate(employee.contractEndDate)}` : "Plazo indefinido";
     item.innerHTML = `
       <div>
         <span class="employee-name">${employee.name}</span>
-        <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${afp} · ${health} · ${contract}<br>${money(employee.salary)} · Locomoción ${money(employee.transportAllowance)} · Colación ${money(employee.mealAllowance)}</span>
+        <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${address}${afp} · ${health} · ${contract}<br>${money(employee.salary)} · Locomoción ${money(employee.transportAllowance)} · Colación ${money(employee.mealAllowance)}</span>
       </div>
       <div class="item-actions" ${isAdmin() ? "" : "hidden"}>
         <button class="mini-button" type="button" title="Editar" aria-label="Editar ${employee.name}" data-edit="${employee.id}">✎</button>
@@ -799,6 +803,7 @@ async function submitEmployee(event) {
     rut: form.get("rut").trim(),
     email: form.get("email").trim(),
     phone: form.get("phone").trim(),
+    address: form.get("address").trim(),
     afp: form.get("afp"),
     healthProvider: form.get("healthProvider"),
     healthPlanAmount: Number(form.get("healthPlanAmount")),
@@ -832,7 +837,6 @@ async function submitEmployee(event) {
       if (error) throw error;
       employee.id = data.id;
       employee.companyId = data.company_id;
-      if (accountPassword) await createEmployeeAccess({ ...employee, email: data.email }, accountPassword);
     }
 
     const index = state.employees.findIndex((item) => item.id === employee.id);
@@ -844,6 +848,13 @@ async function submitEmployee(event) {
 
     resetEmployeeForm();
     renderAll();
+    if (accountPassword && state.remoteReady) {
+      try {
+        await createEmployeeAccess(employee, accountPassword);
+      } catch (accessError) {
+        alert(`Empleado guardado, pero no se pudo crear su acceso: ${accessError.message}`);
+      }
+    }
   } catch (error) {
     alert(`No se pudo guardar el empleado: ${error.message}`);
   }
@@ -858,6 +869,7 @@ function editEmployee(id) {
   document.querySelector("#employeeRut").value = employee.rut;
   document.querySelector("#employeeEmail").value = employee.email || "";
   document.querySelector("#employeePhone").value = employee.phone || "";
+  document.querySelector("#employeeAddress").value = employee.address || "";
   document.querySelector("#employeeAfp").value = employee.afp || "modelo";
   document.querySelector("#employeeHealthProvider").value = employee.healthProvider || "fonasa";
   document.querySelector("#employeeHealthPlanAmount").value = employee.healthPlanAmount || 0;
@@ -905,6 +917,7 @@ function resetEmployeeForm() {
   document.querySelector("#employeeAfp").value = "modelo";
   document.querySelector("#employeeHealthProvider").value = "fonasa";
   document.querySelector("#employeeHealthPlanAmount").value = 0;
+  document.querySelector("#employeeAddress").value = "";
   document.querySelector("#employeeContractType").value = "indefinite";
   document.querySelector("#employeeContractEndDate").value = "";
   document.querySelector("#employeeTransportAllowance").value = 0;
@@ -1209,6 +1222,7 @@ async function seedData() {
       rut: "12.345.678-9",
       email: "camila@empresa.cl",
       phone: "+56 9 1234 5678",
+      address: "Av. Providencia 1234, Santiago",
       afp: "modelo",
       healthProvider: "fonasa",
       healthPlanAmount: 0,
@@ -1232,6 +1246,7 @@ async function seedData() {
       rut: "18.456.111-2",
       email: "matias@empresa.cl",
       phone: "+56 9 8765 4321",
+      address: "Los Leones 845, Providencia",
       afp: "capital",
       healthProvider: "isapre",
       healthPlanAmount: 120000,
@@ -1255,6 +1270,7 @@ async function seedData() {
       rut: "16.789.432-1",
       email: "daniela@empresa.cl",
       phone: "+56 9 2222 3333",
+      address: "Brasil 210, Valparaíso",
       afp: "uno",
       healthProvider: "fonasa",
       healthPlanAmount: 0,
@@ -1276,7 +1292,10 @@ async function seedData() {
 
   try {
     if (state.remoteReady) {
-      const { data, error } = await supabaseClient.from("employees").insert(examples.map(toEmployeeRow)).select();
+      let { data, error } = await supabaseClient.from("employees").insert(examples.map(toEmployeeRow)).select();
+      if (error && /column|schema cache/i.test(error.message || "")) {
+        ({ data, error } = await supabaseClient.from("employees").insert(examples.map(toLegacyEmployeeRow)).select());
+      }
       if (error) throw error;
       state.employees.unshift(...data.map(dbEmployee));
     } else {
