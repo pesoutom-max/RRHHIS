@@ -43,6 +43,7 @@ const state = {
   employees: [],
   payrolls: [],
   certificates: [],
+  selectedPayrollId: null,
   company: null,
   user: null,
   profile: null,
@@ -239,6 +240,32 @@ function setView(view) {
 
 function activeEmployees() {
   return state.employees.filter((employee) => employee.status === "Activo");
+}
+
+function currentEmployeeId() {
+  if (isAdmin()) return null;
+  return state.profile?.employee_id || state.employees.find((employee) => employee.email && employee.email === state.user?.email)?.id || null;
+}
+
+function visibleEmployees() {
+  const employeeId = currentEmployeeId();
+  if (!isAdmin() && !employeeId) return [];
+  return employeeId ? state.employees.filter((employee) => employee.id === employeeId) : state.employees;
+}
+
+function visiblePayrolls() {
+  const employeeId = currentEmployeeId();
+  if (!isAdmin() && !employeeId) return [];
+  return employeeId ? state.payrolls.filter((payroll) => payroll.employeeId === employeeId) : state.payrolls;
+}
+
+function selectedPayrollEmployeeId() {
+  return currentEmployeeId() || els.payrollEmployee.value || null;
+}
+
+function payrollsForSelectedEmployee() {
+  const employeeId = selectedPayrollEmployeeId();
+  return employeeId ? state.payrolls.filter((payroll) => payroll.employeeId === employeeId) : visiblePayrolls();
 }
 
 function dbEmployee(row) {
@@ -465,10 +492,11 @@ function renderAll() {
 }
 
 function renderMetrics() {
-  const active = activeEmployees();
+  const employeeScope = visibleEmployees();
+  const active = employeeScope.filter((employee) => employee.status === "Activo");
   const totalSalary = active.reduce((sum, employee) => sum + Number(employee.salary || 0), 0);
   const vacationDays = active.reduce((sum, employee) => sum + Number(employee.vacationDays || 0), 0);
-  const lastPayroll = state.payrolls[0];
+  const lastPayroll = visiblePayrolls()[0];
 
   els.activeEmployeesMetric.textContent = active.length;
   els.monthlyPayrollMetric.textContent = money(totalSalary);
@@ -478,7 +506,7 @@ function renderMetrics() {
 
 function renderRecentEmployees() {
   clearNode(els.recentEmployeesTable);
-  const employees = isAdmin() ? state.employees.slice(0, 5) : state.employees.slice(0, 1);
+  const employees = isAdmin() ? state.employees.slice(0, 5) : visibleEmployees().slice(0, 1);
 
   if (!employees.length) {
     const row = document.createElement("tr");
@@ -505,7 +533,7 @@ function renderRecentEmployees() {
 function renderEmployeeList() {
   clearNode(els.employeeList);
   const query = els.employeeSearch.value.trim().toLowerCase();
-  const employees = state.employees.filter((employee) => {
+  const employees = visibleEmployees().filter((employee) => {
     return [employee.name, employee.rut, employee.email, employee.phone, employee.afp, employee.healthProvider, employee.role, employee.department, employee.status]
       .join(" ")
       .toLowerCase()
@@ -541,15 +569,16 @@ function renderEmployeeList() {
 function renderEmployeeOptions() {
   [els.payrollEmployee, els.certificateEmployee].forEach((select) => {
     const previousValue = select.value;
+    const employees = visibleEmployees();
     clearNode(select);
-    if (!state.employees.length) {
+    if (!employees.length) {
       const option = new Option("Agrega un empleado primero", "", true, true);
       option.disabled = true;
       select.append(option);
       return;
     }
 
-    state.employees.forEach((employee) => {
+    employees.forEach((employee) => {
       select.append(new Option(`${employee.name} · ${employee.role}`, employee.id));
     });
     if (previousValue) select.value = previousValue;
@@ -557,7 +586,8 @@ function renderEmployeeOptions() {
 }
 
 function renderPayrollDefaults() {
-  const employee = state.employees.find((item) => item.id === els.payrollEmployee.value) || state.employees[0];
+  const employees = visibleEmployees();
+  const employee = employees.find((item) => item.id === els.payrollEmployee.value) || employees[0];
   if (!employee) return;
   if (!els.payrollTaxable.value || Number(els.payrollTaxable.value) === 0) {
     els.payrollTaxable.value = employee.salary;
@@ -580,15 +610,29 @@ function calculateIncomeTax(taxableBase) {
 
 function renderPayrolls() {
   clearNode(els.payrollList);
-  if (!state.payrolls.length) {
+  const payrolls = payrollsForSelectedEmployee();
+  if (!payrolls.length) {
     els.payrollList.append(emptyState());
+    els.printPayrollBtn.disabled = true;
+    state.selectedPayrollId = null;
+    els.payrollPreview.innerHTML = `<p class="muted">No hay liquidaciones emitidas para este empleado.</p>`;
+    delete els.payrollPreview.dataset.payrollId;
     return;
   }
 
-  state.payrolls.forEach((payroll) => {
+  const selectedPayroll = payrolls.find((payroll) => payroll.id === state.selectedPayrollId) || payrolls[0];
+  state.selectedPayrollId = selectedPayroll.id;
+  els.printPayrollBtn.disabled = !state.user;
+  els.printPayrollBtn.textContent = "Imprimir seleccionada";
+  if (!els.payrollPreview.querySelector(".payroll-document") || els.payrollPreview.dataset.payrollId !== selectedPayroll.id) {
+    els.payrollPreview.innerHTML = payrollDocument(selectedPayroll);
+    els.payrollPreview.dataset.payrollId = selectedPayroll.id;
+  }
+
+  payrolls.forEach((payroll) => {
     const employee = state.employees.find((item) => item.id === payroll.employeeId);
     const item = document.createElement("article");
-    item.className = "record-item";
+    item.className = `record-item ${payroll.id === state.selectedPayrollId ? "selected" : ""}`;
     item.innerHTML = `
       <div>
         <span class="record-title">${employee?.name || "Empleado eliminado"} · ${monthLabel(payroll.month)}</span>
@@ -596,6 +640,7 @@ function renderPayrolls() {
       </div>
       <div class="item-actions">
         <button class="mini-button" type="button" title="Ver" aria-label="Ver liquidación" data-view-payroll="${payroll.id}">▤</button>
+        <button class="mini-button" type="button" title="Imprimir" aria-label="Imprimir liquidación" data-print-payroll="${payroll.id}">⇩</button>
         <button class="mini-button danger" type="button" title="Eliminar" aria-label="Eliminar liquidación" data-delete-payroll="${payroll.id}" ${isAdmin() ? "" : "hidden"}>×</button>
       </div>
     `;
@@ -868,7 +913,9 @@ async function submitPayroll(event) {
     } else {
       state.payrolls.unshift(payroll);
     }
+    state.selectedPayrollId = state.payrolls[0].id;
     els.payrollPreview.innerHTML = payrollDocument(state.payrolls[0]);
+    els.payrollPreview.dataset.payrollId = state.payrolls[0].id;
     renderAll();
   } catch (error) {
     alert(`No se pudo generar la liquidación: ${error.message}`);
@@ -894,7 +941,7 @@ function payrollDocument(payroll) {
         <span>RUT</span><strong>${employee?.rut || "No disponible"}</strong>
         <span>MES</span><strong>${monthLabel(payroll.month)}</strong>
       </section>
-      <p class="payroll-days"><strong>Días trabajados</strong> ${Number(payroll.workedDays || 30).toFixed(1)}</p>
+      <p class="payroll-days"><strong>Días trabajados</strong><b>${Number(payroll.workedDays || 30).toFixed(1)}</b></p>
       <div class="payroll-columns payroll-head"><strong>HABERES</strong><strong>DESCUENTOS</strong></div>
       <div class="payroll-columns">
         <div>
@@ -960,8 +1007,24 @@ function payrollLine(label, value, strong = false, className = "") {
 function showPayroll(id) {
   const payroll = state.payrolls.find((item) => item.id === id);
   if (!payroll) return;
+  const employeeId = currentEmployeeId();
+  if (employeeId && payroll.employeeId !== employeeId) return;
+  state.selectedPayrollId = id;
   setView("payroll");
   els.payrollPreview.innerHTML = payrollDocument(payroll);
+  els.payrollPreview.dataset.payrollId = payroll.id;
+  renderPayrolls();
+}
+
+function printPayroll(id = state.selectedPayrollId) {
+  const payrolls = payrollsForSelectedEmployee();
+  const payroll = payrolls.find((item) => item.id === id) || payrolls[0];
+  if (!payroll) return;
+  state.selectedPayrollId = payroll.id;
+  els.payrollPreview.innerHTML = payrollDocument(payroll);
+  els.payrollPreview.dataset.payrollId = payroll.id;
+  setView("payroll");
+  window.print();
 }
 
 async function deletePayroll(id) {
@@ -972,6 +1035,7 @@ async function deletePayroll(id) {
       if (error) throw error;
     }
     state.payrolls = state.payrolls.filter((payroll) => payroll.id !== id);
+    if (state.selectedPayrollId === id) state.selectedPayrollId = null;
     renderAll();
   } catch (error) {
     alert(`No se pudo eliminar la liquidación: ${error.message}`);
@@ -1220,7 +1284,10 @@ els.cancelEditBtn.addEventListener("click", resetEmployeeForm);
 els.employeeSearch.addEventListener("input", renderEmployeeList);
 els.payrollEmployee.addEventListener("change", () => {
   els.payrollTaxable.value = "";
+  state.selectedPayrollId = null;
+  delete els.payrollPreview.dataset.payrollId;
   renderPayrollDefaults();
+  renderPayrolls();
 });
 els.payrollForm.addEventListener("submit", submitPayroll);
 els.certificateForm.addEventListener("submit", submitCertificate);
@@ -1229,13 +1296,7 @@ els.exportDataBtn.addEventListener("click", exportData);
 els.authBtn.addEventListener("click", toggleAuth);
 els.authForm.addEventListener("submit", signIn);
 els.printCertificateBtn.addEventListener("click", () => window.print());
-els.printPayrollBtn.addEventListener("click", () => {
-  if (state.payrolls[0]) {
-    els.payrollPreview.innerHTML = payrollDocument(state.payrolls[0]);
-    setView("payroll");
-    window.print();
-  }
-});
+els.printPayrollBtn.addEventListener("click", () => printPayroll());
 
 els.employeeList.addEventListener("click", (event) => {
   const editId = event.target.dataset.edit;
@@ -1246,8 +1307,10 @@ els.employeeList.addEventListener("click", (event) => {
 
 els.payrollList.addEventListener("click", (event) => {
   const viewId = event.target.dataset.viewPayroll;
+  const printId = event.target.dataset.printPayroll;
   const deleteId = event.target.dataset.deletePayroll;
   if (viewId) showPayroll(viewId);
+  if (printId) printPayroll(printId);
   if (deleteId) deletePayroll(deleteId);
 });
 
