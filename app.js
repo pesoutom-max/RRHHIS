@@ -714,10 +714,17 @@ function renderEmployeeList() {
               .slice(0, 5)
               .map(
                 (certificate) => `
-                  <button class="history-item" type="button" data-view-certificate="${certificate.id}">
-                    <span>${certificate.type === "vacaciones" ? "Vacaciones" : "Permiso"}</span>
-                    <small>${readableDate(certificate.start)} al ${readableDate(certificate.end)}${certificate.type === "vacaciones" ? ` · ${certificate.days || businessDaysBetween(certificate.start, certificate.end)} día(s)` : ""}</small>
-                  </button>
+                  <article class="history-row">
+                    <button class="history-item" type="button" data-view-certificate="${certificate.id}">
+                      <span>${certificate.type === "vacaciones" ? "Vacaciones" : "Permiso"}</span>
+                      <small>${readableDate(certificate.start)} al ${readableDate(certificate.end)}${certificate.type === "vacaciones" ? ` · ${certificate.days || businessDaysBetween(certificate.start, certificate.end)} día(s)` : ""}</small>
+                    </button>
+                    <div class="history-actions">
+                      <button class="action-button" type="button" data-view-certificate="${certificate.id}">Ver</button>
+                      <button class="action-button" type="button" data-edit-certificate="${certificate.id}">Editar</button>
+                      <button class="action-button danger" type="button" data-delete-certificate="${certificate.id}">Eliminar</button>
+                    </div>
+                  </article>
                 `,
               )
               .join("")}
@@ -734,10 +741,17 @@ function renderEmployeeList() {
               .slice(0, 5)
               .map(
                 (payroll) => `
-                  <button class="history-item" type="button" data-view-payroll="${payroll.id}">
-                    <span>${monthLabel(payroll.month)}</span>
-                    <small>Líquido ${money(payroll.netPay)} · Imponible ${money(payroll.totalTaxable || payroll.taxable)}</small>
-                  </button>
+                  <article class="history-row">
+                    <button class="history-item" type="button" data-view-payroll="${payroll.id}">
+                      <span>${monthLabel(payroll.month)}</span>
+                      <small>Líquido ${money(payroll.netPay)} · Imponible ${money(payroll.totalTaxable || payroll.taxable)}</small>
+                    </button>
+                    <div class="history-actions">
+                      <button class="action-button" type="button" data-view-payroll="${payroll.id}">Ver</button>
+                      <button class="action-button" type="button" data-print-payroll="${payroll.id}">Imprimir</button>
+                      <button class="action-button danger" type="button" data-delete-payroll="${payroll.id}">Eliminar</button>
+                    </div>
+                  </article>
                 `,
               )
               .join("")}
@@ -753,8 +767,8 @@ function renderEmployeeList() {
         ${certificateHistory}
       </div>
       <div class="item-actions" ${isAdmin() ? "" : "hidden"}>
-        <button class="mini-button" type="button" title="Editar" aria-label="Editar ${employee.name}" data-edit="${employee.id}">✎</button>
-        <button class="mini-button danger" type="button" title="Eliminar" aria-label="Eliminar ${employee.name}" data-delete="${employee.id}">×</button>
+        <button class="action-button" type="button" aria-label="Editar funcionario ${employee.name}" data-edit="${employee.id}">Editar ficha</button>
+        <button class="action-button danger" type="button" aria-label="Eliminar funcionario ${employee.name}" data-delete="${employee.id}">Eliminar funcionario</button>
       </div>
     `;
     els.employeeList.append(item);
@@ -862,9 +876,9 @@ function renderPayrolls() {
         <span class="record-meta">Líquido a pago: ${money(payroll.netPay)} · Descuentos: ${money(payroll.totalDeductions)}</span>
       </div>
       <div class="item-actions">
-        <button class="mini-button" type="button" title="Ver" aria-label="Ver liquidación" data-view-payroll="${payroll.id}">▤</button>
-        <button class="mini-button" type="button" title="Imprimir" aria-label="Imprimir liquidación" data-print-payroll="${payroll.id}">⇩</button>
-        <button class="mini-button danger" type="button" title="Eliminar" aria-label="Eliminar liquidación" data-delete-payroll="${payroll.id}" ${isAdmin() ? "" : "hidden"}>×</button>
+        <button class="action-button" type="button" data-view-payroll="${payroll.id}">Ver</button>
+        <button class="action-button" type="button" data-print-payroll="${payroll.id}">Imprimir</button>
+        <button class="action-button danger" type="button" data-delete-payroll="${payroll.id}" ${isAdmin() ? "" : "hidden"}>Eliminar</button>
       </div>
     `;
     els.payrollList.append(item);
@@ -982,9 +996,9 @@ function renderCertificates() {
                 <span class="record-meta">${employee?.name || "Empleado"} · ${readableDate(certificate.start)} al ${readableDate(certificate.end)}</span>
               </div>
               <div class="item-actions">
-                <button class="mini-button" type="button" title="Ver" aria-label="Ver certificado" data-view-certificate="${certificate.id}">▤</button>
-                <button class="mini-button" type="button" title="Editar" aria-label="Editar certificado" data-edit-certificate="${certificate.id}" ${isAdmin() ? "" : "hidden"}>✎</button>
-                <button class="mini-button danger" type="button" title="Eliminar" aria-label="Eliminar certificado" data-delete-certificate="${certificate.id}" ${isAdmin() ? "" : "hidden"}>×</button>
+                <button class="action-button" type="button" data-view-certificate="${certificate.id}">Ver</button>
+                <button class="action-button" type="button" data-edit-certificate="${certificate.id}" ${isAdmin() ? "" : "hidden"}>Editar</button>
+                <button class="action-button danger" type="button" data-delete-certificate="${certificate.id}" ${isAdmin() ? "" : "hidden"}>Eliminar</button>
               </div>
             </article>
           `;
@@ -1040,12 +1054,13 @@ async function deleteCertificate(id) {
   const certificate = state.certificates.find((item) => item.id === id);
   if (!certificate) return;
   const employee = state.employees.find((item) => item.id === certificate.employeeId);
-  const confirmed = window.confirm("¿Eliminar este certificado del historial del empleado?");
+  const restoredDays = certificateVacationDays(certificate);
+  const confirmed = window.confirm(`¿Eliminar este certificado del historial de ${employee?.name || "este empleado"}?${restoredDays ? "\n\nLos días de vacaciones descontados serán reintegrados." : ""}`);
   if (!confirmed) return;
 
   try {
     if (employee) {
-      await saveEmployeeVacationBalance(employee, Number(employee.vacationDays || 0) + certificateVacationDays(certificate));
+      await saveEmployeeVacationBalance(employee, Number(employee.vacationDays || 0) + restoredDays);
     }
     if (state.remoteReady) {
       const { error } = await supabaseClient.from("certificates").delete().eq("id", id);
@@ -1188,8 +1203,15 @@ async function deleteEmployee(id) {
   if (!requireSignedIn() || !requireAdmin()) return;
   const employee = state.employees.find((item) => item.id === id);
   if (!employee) return;
-  const confirmed = window.confirm(`¿Eliminar a ${employee.name}? También se eliminarán sus registros relacionados.`);
-  if (!confirmed) return;
+  const relatedPayrolls = state.payrolls.filter((item) => item.employeeId === id).length;
+  const relatedCertificates = state.certificates.filter((item) => item.employeeId === id).length;
+  const confirmed = window.confirm(
+    `Advertencia: vas a eliminar al funcionario ${employee.name}.\n\nTambién se eliminarán de esta vista ${relatedPayrolls} liquidación(es) y ${relatedCertificates} certificado(s) asociados.\n\nEsta acción no elimina solo un documento. Para eliminar liquidaciones o certificados individuales usa el botón "Eliminar" dentro del historial correspondiente.\n\n¿Deseas continuar?`,
+  );
+  if (!confirmed) {
+    alert("El funcionario no fue eliminado.");
+    return;
+  }
 
   try {
     if (state.remoteReady) {
@@ -1200,6 +1222,7 @@ async function deleteEmployee(id) {
     state.payrolls = state.payrolls.filter((item) => item.employeeId !== id);
     state.certificates = state.certificates.filter((item) => item.employeeId !== id);
     renderAll();
+    alert(`Funcionario eliminado: ${employee.name}.`);
   } catch (error) {
     alert(`No se pudo eliminar el empleado: ${error.message}`);
   }
@@ -1443,6 +1466,11 @@ function printPayroll(id = state.selectedPayrollId) {
 
 async function deletePayroll(id) {
   if (!requireSignedIn() || !requireAdmin()) return;
+  const payroll = state.payrolls.find((item) => item.id === id);
+  if (!payroll) return;
+  const employee = state.employees.find((item) => item.id === payroll.employeeId);
+  const confirmed = window.confirm(`¿Eliminar la liquidación de ${employee?.name || "este empleado"} correspondiente a ${monthLabel(payroll.month)}?`);
+  if (!confirmed) return;
   try {
     if (state.remoteReady) {
       const { error } = await supabaseClient.from("payrolls").delete().eq("id", id);
@@ -1777,15 +1805,23 @@ els.operationalAlerts?.addEventListener("click", (event) => {
 });
 
 els.employeeList.addEventListener("click", (event) => {
-  const target = event.target.closest("[data-edit], [data-delete], [data-view-certificate], [data-view-payroll]");
+  const target = event.target.closest("[data-edit], [data-delete], [data-view-certificate], [data-edit-certificate], [data-delete-certificate], [data-view-payroll], [data-print-payroll], [data-delete-payroll]");
   const editId = target?.dataset.edit;
   const deleteId = target?.dataset.delete;
   const certificateId = target?.dataset.viewCertificate;
+  const editCertificateId = target?.dataset.editCertificate;
+  const deleteCertificateId = target?.dataset.deleteCertificate;
   const payrollId = target?.dataset.viewPayroll;
+  const printPayrollId = target?.dataset.printPayroll;
+  const deletePayrollId = target?.dataset.deletePayroll;
   if (editId) editEmployee(editId);
   if (deleteId) deleteEmployee(deleteId);
   if (certificateId) showCertificate(certificateId);
+  if (editCertificateId) editCertificate(editCertificateId);
+  if (deleteCertificateId) deleteCertificate(deleteCertificateId);
   if (payrollId) showPayroll(payrollId);
+  if (printPayrollId) printPayroll(printPayrollId);
+  if (deletePayrollId) deletePayroll(deletePayrollId);
 });
 
 els.payrollList.addEventListener("click", (event) => {

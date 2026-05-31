@@ -910,6 +910,13 @@ textarea:focus {
   margin-top: 9px;
 }
 
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .history-item {
   display: grid;
   gap: 2px;
@@ -933,27 +940,46 @@ textarea:focus {
 .item-actions {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.mini-button {
+.history-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mini-button,
+.action-button {
   display: grid;
   place-items: center;
   min-width: 34px;
   height: 34px;
+  padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   color: var(--ink);
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
-.mini-button:hover {
+.mini-button:hover,
+.action-button:hover {
   border-color: var(--accent-strong);
   color: var(--accent-strong);
 }
 
-.mini-button.danger {
+.mini-button.danger,
+.action-button.danger {
   color: var(--red);
+}
+
+.action-button.danger:hover {
+  border-color: rgba(240, 106, 106, 0.55);
+  color: #ff9a9a;
 }
 
 .status-pill {
@@ -1314,7 +1340,8 @@ textarea:focus {
   }
 
   .employee-item,
-  .record-item {
+  .record-item,
+  .history-row {
     grid-template-columns: 1fr;
   }
 
