@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RRHH Central</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -36,17 +39,19 @@
     </section>
 
     <div class="app-shell hidden" id="appShell">
-      <aside class="sidebar">
-        <div class="brand">
+      <header class="app-nav">
+        <a class="brand nav-brand" href="#" data-jump="home" aria-label="Ir al inicio">
           <div class="brand-mark">RH</div>
           <div>
             <strong>RRHH Central</strong>
             <span>Administración interna</span>
           </div>
-        </div>
+        </a>
+
+        <button class="nav-toggle" type="button" id="mobileNavToggle" aria-label="Abrir menú" aria-expanded="false">☰</button>
 
         <nav class="nav-tabs" aria-label="Secciones principales">
-          <button class="nav-tab active" type="button" data-view="dashboard">
+          <button class="nav-tab" type="button" data-view="dashboard">
             <span aria-hidden="true">⌂</span>
             Panel
           </button>
@@ -64,43 +69,53 @@
           </button>
         </nav>
 
-        <div class="sidebar-note">
-          <span id="storageStatus">Conectando con Supabase...</span>
+        <div class="topbar-actions">
+          <span class="user-chip" id="currentUser">Sin sesión</span>
+          <button class="text-button" type="button" id="authBtn">Ingresar</button>
+          <button class="icon-button" type="button" id="seedDataBtn" title="Cargar datos de ejemplo" aria-label="Cargar datos de ejemplo">＋</button>
+          <button class="icon-button" type="button" id="exportDataBtn" title="Exportar datos" aria-label="Exportar datos">⇩</button>
         </div>
-      </aside>
+      </header>
 
       <main class="workspace">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">Sistema de gestión</p>
-            <h1 id="viewTitle">Panel de Recursos Humanos</h1>
-          </div>
-          <div class="topbar-actions">
-            <span class="user-chip" id="currentUser">Sin sesión</span>
-            <button class="text-button" type="button" id="authBtn">Ingresar</button>
-            <button class="icon-button" type="button" id="seedDataBtn" title="Cargar datos de ejemplo" aria-label="Cargar datos de ejemplo">＋</button>
-            <button class="icon-button" type="button" id="exportDataBtn" title="Exportar datos" aria-label="Exportar datos">⇩</button>
-          </div>
-        </header>
+        <p class="sr-only" id="viewTitle">RRHH Central</p>
 
-        <section class="view active" id="dashboardView" data-title="Panel de Recursos Humanos">
-          <div class="metrics-grid">
-            <article class="metric">
-              <span>Empleados activos</span>
-              <strong id="activeEmployeesMetric">0</strong>
-            </article>
-            <article class="metric">
-              <span>Planilla mensual estimada</span>
-              <strong id="monthlyPayrollMetric">$0</strong>
-            </article>
-            <article class="metric">
-              <span>Días de vacaciones disponibles</span>
-              <strong id="vacationDaysMetric">0</strong>
-            </article>
-            <article class="metric">
-              <span>Última liquidación</span>
-              <strong id="lastPayrollMetric">Sin registros</strong>
-            </article>
+        <section class="view home-view active" id="homeView" data-title="RRHH Central">
+          <div class="hero">
+            <p class="eyebrow">Sistema interno de gestión</p>
+            <h1>RRHH Central</h1>
+            <p class="hero-copy">Personas, liquidaciones y certificados en una operación clara para pequeñas empresas chilenas.</p>
+            <button class="primary-button hero-cta" type="button" data-jump="dashboard">Ver Panel</button>
+            <div class="metrics-grid hero-metrics">
+              <article class="metric" style="--delay: 0s">
+                <span class="metric-icon" aria-hidden="true">👥</span>
+                <span>Empleados activos</span>
+                <strong id="activeEmployeesMetric">0</strong>
+              </article>
+              <article class="metric" style="--delay: 0.1s">
+                <span class="metric-icon" aria-hidden="true">$</span>
+                <span>Planilla mensual estimada</span>
+                <strong id="monthlyPayrollMetric">$0</strong>
+              </article>
+              <article class="metric" style="--delay: 0.2s">
+                <span class="metric-icon" aria-hidden="true">◷</span>
+                <span>Días de vacaciones disponibles</span>
+                <strong id="vacationDaysMetric">0</strong>
+              </article>
+              <article class="metric" style="--delay: 0.3s">
+                <span class="metric-icon" aria-hidden="true">▤</span>
+                <span>Última liquidación</span>
+                <strong id="lastPayrollMetric">Sin registros</strong>
+              </article>
+            </div>
+            <span class="connection-status" id="storageStatus">Conectando con Supabase...</span>
+          </div>
+        </section>
+
+        <section class="view" id="dashboardView" data-title="Panel de Recursos Humanos">
+          <div class="panel-heading">
+            <p class="eyebrow">Panel</p>
+            <h1>Resumen de Recursos Humanos</h1>
           </div>
 
           <div class="dashboard-layout">

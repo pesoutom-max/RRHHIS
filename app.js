@@ -54,6 +54,8 @@ const els = {
   viewTitle: document.querySelector("#viewTitle"),
   navTabs: document.querySelectorAll(".nav-tab"),
   views: document.querySelectorAll(".view"),
+  appNav: document.querySelector(".app-nav"),
+  mobileNavToggle: document.querySelector("#mobileNavToggle"),
   storageStatus: document.querySelector("#storageStatus"),
   activeEmployeesMetric: document.querySelector("#activeEmployeesMetric"),
   monthlyPayrollMetric: document.querySelector("#monthlyPayrollMetric"),
@@ -236,6 +238,8 @@ function setView(view) {
   els.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
   const activeView = document.querySelector(`#${view}View`);
   els.viewTitle.textContent = activeView?.dataset.title || "RRHH Central";
+  els.appNav?.classList.remove("menu-open");
+  els.mobileNavToggle?.setAttribute("aria-expanded", "false");
 }
 
 function activeEmployees() {
@@ -933,13 +937,13 @@ function payrollDocument(payroll) {
     <article class="payroll-document">
       <header class="payroll-title">LIQUIDACION SUELDO</header>
       <section class="payroll-meta">
-        <span>EMPRESA</span><strong>${company.name}</strong>
-        <span>R.U.T.</span><strong>${company.tax_id || "No disponible"}</strong>
+        <div><span>Empresa</span><strong>${company.name}</strong></div>
+        <div><span>R.U.T.</span><strong>${company.tax_id || "No disponible"}</strong></div>
       </section>
       <section class="payroll-meta worker">
-        <span>TRABAJADOR</span><strong>${employee?.name || "Empleado eliminado"}</strong>
-        <span>RUT</span><strong>${employee?.rut || "No disponible"}</strong>
-        <span>MES</span><strong>${monthLabel(payroll.month)}</strong>
+        <div><span>Trabajador</span><strong>${employee?.name || "Empleado eliminado"}</strong></div>
+        <div><span>RUT</span><strong>${employee?.rut || "No disponible"}</strong></div>
+        <div><span>Mes</span><strong>${monthLabel(payroll.month)}</strong></div>
       </section>
       <p class="payroll-days"><strong>Días trabajados</strong><b>${Number(payroll.workedDays || 30).toFixed(1)}</b></p>
       <div class="payroll-columns payroll-head"><strong>HABERES</strong><strong>DESCUENTOS</strong></div>
@@ -1275,6 +1279,10 @@ async function toggleAuth() {
 }
 
 els.navTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
+els.mobileNavToggle?.addEventListener("click", () => {
+  const expanded = els.appNav.classList.toggle("menu-open");
+  els.mobileNavToggle.setAttribute("aria-expanded", String(expanded));
+});
 document.querySelectorAll("[data-jump]").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.jump));
 });
