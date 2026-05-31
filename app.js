@@ -62,6 +62,7 @@ const els = {
   vacationDaysMetric: document.querySelector("#vacationDaysMetric"),
   lastPayrollMetric: document.querySelector("#lastPayrollMetric"),
   recentEmployeesTable: document.querySelector("#recentEmployeesTable"),
+  operationalAlerts: document.querySelector("#operationalAlerts"),
   employeeForm: document.querySelector("#employeeForm"),
   employeeFormTitle: document.querySelector("#employeeFormTitle"),
   cancelEditBtn: document.querySelector("#cancelEditBtn"),
@@ -487,6 +488,7 @@ function renderAll() {
   setAuthUi();
   renderMetrics();
   renderRecentEmployees();
+  renderOperationalAlerts();
   renderEmployeeList();
   renderEmployeeOptions();
   renderPayrollDefaults();
@@ -531,6 +533,104 @@ function renderRecentEmployees() {
       <td><span class="status-pill ${employee.status === "Activo" ? "" : "off"}">${employee.status}</span></td>
     `;
     els.recentEmployeesTable.append(row);
+  });
+}
+
+function currentMonthKey() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function daysFromToday(value) {
+  if (!value) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(`${value}T12:00:00`);
+  return Math.ceil((target - today) / 86400000);
+}
+
+function incompleteEmployeeFields(employee) {
+  return [
+    ["email", employee.email],
+    ["telefono", employee.phone],
+    ["AFP", employee.afp],
+    ["salud", employee.healthProvider],
+    ["contacto emergencia", employee.emergencyName],
+    ["fono emergencia", employee.emergencyPhone],
+  ]
+    .filter(([, value]) => !value)
+    .map(([label]) => label);
+}
+
+function renderOperationalAlerts() {
+  if (!els.operationalAlerts) return;
+  clearNode(els.operationalAlerts);
+  const employees = visibleEmployees();
+  const active = employees.filter((employee) => employee.status === "Activo");
+  const month = currentMonthKey();
+  const payrollEmployeeIds = new Set(visiblePayrolls().filter((payroll) => payroll.month === month).map((payroll) => payroll.employeeId));
+  const missingPayrolls = active.filter((employee) => !payrollEmployeeIds.has(employee.id));
+  const expiringContracts = employees
+    .filter((employee) => employee.contractType === "fixed" && employee.contractEndDate)
+    .map((employee) => ({ employee, days: daysFromToday(employee.contractEndDate) }))
+    .filter((item) => item.days !== null && item.days >= 0 && item.days <= 45)
+    .sort((a, b) => a.days - b.days);
+  const incompleteProfiles = employees
+    .map((employee) => ({ employee, fields: incompleteEmployeeFields(employee) }))
+    .filter((item) => item.fields.length > 0);
+  const lowVacations = active.filter((employee) => Number(employee.vacationDays || 0) <= 5);
+
+  const cards = [
+    {
+      title: "Liquidaciones del mes",
+      value: missingPayrolls.length,
+      detail: missingPayrolls.length ? `${missingPayrolls.length} trabajador(es) sin liquidacion de ${monthLabel(month)}` : `Todas emitidas para ${monthLabel(month)}`,
+      action: "payroll",
+      tone: missingPayrolls.length ? "warn" : "ok",
+      items: missingPayrolls.slice(0, 3).map((employee) => employee.name),
+    },
+    {
+      title: "Contratos por vencer",
+      value: expiringContracts.length,
+      detail: expiringContracts.length ? "Plazo fijo dentro de los proximos 45 dias" : "Sin vencimientos cercanos",
+      action: "employees",
+      tone: expiringContracts.length ? "warn" : "ok",
+      items: expiringContracts.slice(0, 3).map(({ employee, days }) => `${employee.name} · ${days} dia(s)`),
+    },
+    {
+      title: "Fichas incompletas",
+      value: incompleteProfiles.length,
+      detail: incompleteProfiles.length ? "Faltan datos utiles para documentos y portal" : "Fichas principales completas",
+      action: "employees",
+      tone: incompleteProfiles.length ? "info" : "ok",
+      items: incompleteProfiles.slice(0, 3).map(({ employee, fields }) => `${employee.name} · ${fields.slice(0, 2).join(", ")}`),
+    },
+    {
+      title: "Vacaciones bajas",
+      value: lowVacations.length,
+      detail: lowVacations.length ? "Saldos iguales o menores a 5 dias" : "Sin saldos criticos",
+      action: "certificates",
+      tone: lowVacations.length ? "info" : "ok",
+      items: lowVacations.slice(0, 3).map((employee) => `${employee.name} · ${Number(employee.vacationDays || 0).toLocaleString("es-CL")} dia(s)`),
+    },
+  ];
+
+  cards.forEach((card) => {
+    const item = document.createElement("article");
+    item.className = `operation-card ${card.tone}`;
+    item.innerHTML = `
+      <div>
+        <span class="operation-label">${card.title}</span>
+        <strong>${card.value}</strong>
+        <p>${card.detail}</p>
+      </div>
+      ${
+        card.items.length
+          ? `<ul>${card.items.map((entry) => `<li>${entry}</li>`).join("")}</ul>`
+          : `<span class="operation-empty">Sin acciones pendientes</span>`
+      }
+      <button class="text-button subtle" type="button" data-jump="${card.action}">Revisar</button>
+    `;
+    els.operationalAlerts.append(item);
   });
 }
 
@@ -1305,6 +1405,10 @@ els.authBtn.addEventListener("click", toggleAuth);
 els.authForm.addEventListener("submit", signIn);
 els.printCertificateBtn.addEventListener("click", () => window.print());
 els.printPayrollBtn.addEventListener("click", () => printPayroll());
+els.operationalAlerts?.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-jump]");
+  if (target) setView(target.dataset.jump);
+});
 
 els.employeeList.addEventListener("click", (event) => {
   const editId = event.target.dataset.edit;

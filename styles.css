@@ -439,6 +439,10 @@ h2,
   gap: 18px;
 }
 
+.wide-panel {
+  grid-column: 1 / -1;
+}
+
 .panel {
   min-width: 0;
   padding: 20px;
@@ -535,6 +539,75 @@ h2,
 .line-c {
   top: 74px;
   width: 32%;
+}
+
+.operations-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.operation-card {
+  display: grid;
+  align-content: space-between;
+  gap: 16px;
+  min-height: 220px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.operation-card.warn {
+  border-color: rgba(201, 162, 39, 0.34);
+}
+
+.operation-card.info {
+  border-color: rgba(42, 157, 157, 0.32);
+}
+
+.operation-card.ok {
+  border-color: rgba(127, 240, 231, 0.22);
+}
+
+.operation-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.operation-card strong {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--title-font);
+  font-size: 2.15rem;
+  line-height: 1;
+}
+
+.operation-card p,
+.operation-card li,
+.operation-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.42;
+}
+
+.operation-card p {
+  margin-top: 8px;
+}
+
+.operation-card ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.operation-card .text-button {
+  justify-self: start;
 }
 
 .table-wrap {
@@ -1027,6 +1100,7 @@ textarea:focus {
   }
 
   .metrics-grid,
+  .operations-grid,
   .dashboard-layout,
   .split-layout {
     grid-template-columns: 1fr 1fr;
@@ -1064,6 +1138,7 @@ textarea:focus {
 
   .nav-tabs,
   .metrics-grid,
+  .operations-grid,
   .dashboard-layout,
   .split-layout,
   .form-grid {
