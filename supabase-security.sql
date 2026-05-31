@@ -22,6 +22,9 @@ create table if not exists public.user_profiles (
 alter table public.employees
   add column if not exists afp_code text not null default 'modelo',
   add column if not exists address text,
+  add column if not exists bank_name text,
+  add column if not exists bank_account_type text,
+  add column if not exists bank_account_number text,
   add column if not exists health_provider text not null default 'fonasa',
   add column if not exists health_plan_amount integer not null default 0,
   add column if not exists contract_type text not null default 'indefinite',

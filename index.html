@@ -205,6 +205,23 @@
                   <input id="employeeAddress" name="address" autocomplete="street-address" placeholder="Ej: Av. Providencia 1234, Santiago" />
                 </label>
                 <label>
+                  Banco
+                  <input id="employeeBankName" name="bankName" placeholder="Ej: BancoEstado" />
+                </label>
+                <label>
+                  Tipo de cuenta
+                  <select id="employeeBankAccountType" name="bankAccountType">
+                    <option value="">Seleccionar</option>
+                    <option value="corriente">Cuenta corriente</option>
+                    <option value="vista">Cuenta vista</option>
+                    <option value="cuenta-rut">Cuenta RUT</option>
+                  </select>
+                </label>
+                <label class="full">
+                  Número de cuenta
+                  <input id="employeeBankAccountNumber" name="bankAccountNumber" inputmode="numeric" placeholder="Ej: 123456789" />
+                </label>
+                <label>
                   AFP
                   <select id="employeeAfp" name="afp">
                     <option value="modelo">Modelo</option>
@@ -341,6 +358,26 @@
                   Horas extras
                   <input id="payrollOvertime" type="number" min="0" step="1000" value="0" />
                 </label>
+                <div class="overtime-calculator full">
+                  <div>
+                    <p class="eyebrow">Calculadora</p>
+                    <strong>Horas extras por empleado</strong>
+                  </div>
+                  <label>
+                    Cantidad de horas
+                    <input id="payrollOvertimeHours" type="number" min="0" step="0.5" value="0" />
+                  </label>
+                  <label>
+                    Recargo
+                    <select id="payrollOvertimeMultiplier">
+                      <option value="1.5">50% legal</option>
+                      <option value="1.75">75%</option>
+                      <option value="2">100%</option>
+                    </select>
+                  </label>
+                  <button class="text-button subtle" type="button" id="calculateOvertimeBtn">Calcular horas extras</button>
+                  <span class="overtime-note" id="overtimeCalculationNote">Se calcula sobre sueldo base / 180 horas.</span>
+                </div>
                 <label>
                   Anticipo
                   <input id="payrollAdvance" type="number" min="0" step="1000" value="0" />
@@ -384,39 +421,42 @@
         <section class="view" id="certificatesView" data-title="Certificados de vacaciones y permisos">
           <div class="split-layout">
             <section class="panel">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Emisión</p>
-                  <h2>Nuevo certificado</h2>
-                </div>
-              </div>
+              <details class="collapsible-panel" open>
+                <summary>
+                  <span>
+                    <span class="eyebrow">Emisión</span>
+                    <strong>Nuevo certificado</strong>
+                  </span>
+                  <span class="summary-icon" aria-hidden="true">⌄</span>
+                </summary>
 
-              <form id="certificateForm" class="form-grid">
-                <label>
-                  Tipo
-                  <select id="certificateType">
-                    <option value="vacaciones">Vacaciones</option>
-                    <option value="permiso">Permiso</option>
-                  </select>
-                </label>
-                <label>
-                  Empleado
-                  <select id="certificateEmployee" required></select>
-                </label>
-                <label>
-                  Desde
-                  <input id="certificateStart" type="date" required />
-                </label>
-                <label>
-                  Hasta
-                  <input id="certificateEnd" type="date" required />
-                </label>
-                <label class="full">
-                  Observación
-                  <textarea id="certificateNotes" rows="4" placeholder="Ej: Autorizado por jefatura directa"></textarea>
-                </label>
-                <button class="primary-button full" type="submit">Emitir certificado</button>
-              </form>
+                <form id="certificateForm" class="form-grid">
+                  <label>
+                    Tipo
+                    <select id="certificateType">
+                      <option value="vacaciones">Vacaciones</option>
+                      <option value="permiso">Permiso</option>
+                    </select>
+                  </label>
+                  <label>
+                    Empleado
+                    <select id="certificateEmployee" required></select>
+                  </label>
+                  <label>
+                    Desde
+                    <input id="certificateStart" type="date" required />
+                  </label>
+                  <label>
+                    Hasta
+                    <input id="certificateEnd" type="date" required />
+                  </label>
+                  <label class="full">
+                    Observación
+                    <textarea id="certificateNotes" rows="4" placeholder="Ej: Autorizado por jefatura directa"></textarea>
+                  </label>
+                  <button class="primary-button full" type="submit">Guardar certificado</button>
+                </form>
+              </details>
             </section>
 
             <section class="panel">

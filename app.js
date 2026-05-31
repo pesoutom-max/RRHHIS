@@ -74,6 +74,10 @@ const els = {
   payrollTaxable: document.querySelector("#payrollTaxable"),
   payrollBonus: document.querySelector("#payrollBonus"),
   payrollOvertime: document.querySelector("#payrollOvertime"),
+  payrollOvertimeHours: document.querySelector("#payrollOvertimeHours"),
+  payrollOvertimeMultiplier: document.querySelector("#payrollOvertimeMultiplier"),
+  calculateOvertimeBtn: document.querySelector("#calculateOvertimeBtn"),
+  overtimeCalculationNote: document.querySelector("#overtimeCalculationNote"),
   payrollAdvance: document.querySelector("#payrollAdvance"),
   payrollLoan: document.querySelector("#payrollLoan"),
   payrollThirdParty: document.querySelector("#payrollThirdParty"),
@@ -132,9 +136,31 @@ function payrollMoney(value) {
   return new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(Math.round(Number(value) || 0));
 }
 
+function bankAccountTypeLabel(value) {
+  return {
+    corriente: "Cuenta corriente",
+    vista: "Cuenta vista",
+    "cuenta-rut": "Cuenta RUT",
+  }[value] || "";
+}
+
 function readableDate(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("es-CL", { dateStyle: "long" }).format(new Date(`${value}T12:00:00`));
+}
+
+function businessDaysBetween(start, end) {
+  if (!start || !end) return 0;
+  const current = new Date(`${start}T12:00:00`);
+  const last = new Date(`${end}T12:00:00`);
+  if (Number.isNaN(current.getTime()) || Number.isNaN(last.getTime()) || current > last) return 0;
+  let days = 0;
+  while (current <= last) {
+    const weekday = current.getDay();
+    if (weekday !== 0 && weekday !== 6) days += 1;
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
 }
 
 function monthLabel(value) {
@@ -282,6 +308,9 @@ function dbEmployee(row) {
     email: row.email || "",
     phone: row.phone || "",
     address: row.address || "",
+    bankName: row.bank_name || "",
+    bankAccountType: row.bank_account_type || "",
+    bankAccountNumber: row.bank_account_number || "",
     afp: row.afp_code || "modelo",
     healthProvider: row.health_provider || "fonasa",
     healthPlanAmount: Number(row.health_plan_amount || 0),
@@ -309,6 +338,9 @@ function toEmployeeRow(employee) {
     email: employee.email || null,
     phone: employee.phone || null,
     address: employee.address || null,
+    bank_name: employee.bankName || null,
+    bank_account_type: employee.bankAccountType || null,
+    bank_account_number: employee.bankAccountNumber || null,
     afp_code: employee.afp || "modelo",
     health_provider: employee.healthProvider || "fonasa",
     health_plan_amount: employee.healthPlanAmount || 0,
@@ -555,6 +587,9 @@ function incompleteEmployeeFields(employee) {
     ["email", employee.email],
     ["telefono", employee.phone],
     ["dirección", employee.address],
+    ["banco", employee.bankName],
+    ["tipo de cuenta", employee.bankAccountType],
+    ["número de cuenta", employee.bankAccountNumber],
     ["AFP", employee.afp],
     ["salud", employee.healthProvider],
     ["contacto emergencia", employee.emergencyName],
@@ -641,7 +676,7 @@ function renderEmployeeList() {
   clearNode(els.employeeList);
   const query = els.employeeSearch.value.trim().toLowerCase();
   const employees = visibleEmployees().filter((employee) => {
-    return [employee.name, employee.rut, employee.email, employee.phone, employee.address, employee.afp, employee.healthProvider, employee.role, employee.department, employee.status]
+    return [employee.name, employee.rut, employee.email, employee.phone, employee.address, employee.bankName, employee.bankAccountType, employee.bankAccountNumber, employee.afp, employee.healthProvider, employee.role, employee.department, employee.status]
       .join(" ")
       .toLowerCase()
       .includes(query);
@@ -657,13 +692,36 @@ function renderEmployeeList() {
     item.className = "employee-item";
     const contact = [employee.email, employee.phone].filter(Boolean).join(" · ");
     const address = employee.address ? `${employee.address}<br>` : "";
+    const bank = [employee.bankName, bankAccountTypeLabel(employee.bankAccountType), employee.bankAccountNumber].filter(Boolean).join(" · ");
     const afp = PAYROLL_INDICATORS.afp[employee.afp]?.label || "Modelo";
     const health = employee.healthProvider === "isapre" ? `ISAPRE${employee.healthPlanAmount ? ` ${money(employee.healthPlanAmount)}` : ""}` : "FONASA";
     const contract = employee.contractType === "fixed" ? `Plazo fijo hasta ${readableDate(employee.contractEndDate)}` : "Plazo indefinido";
+    const employeeCertificates = state.certificates.filter((certificate) => certificate.employeeId === employee.id);
+    const history = employeeCertificates.length
+      ? `
+        <details class="employee-history">
+          <summary>Historial de certificados · ${employeeCertificates.length}</summary>
+          <div class="history-list">
+            ${employeeCertificates
+              .slice(0, 5)
+              .map(
+                (certificate) => `
+                  <button class="history-item" type="button" data-view-certificate="${certificate.id}">
+                    <span>${certificate.type === "vacaciones" ? "Vacaciones" : "Permiso"}</span>
+                    <small>${readableDate(certificate.start)} al ${readableDate(certificate.end)}${certificate.type === "vacaciones" ? ` · ${certificate.days || businessDaysBetween(certificate.start, certificate.end)} día(s)` : ""}</small>
+                  </button>
+                `,
+              )
+              .join("")}
+          </div>
+        </details>
+      `
+      : `<span class="employee-history-empty">Sin certificados guardados</span>`;
     item.innerHTML = `
       <div>
         <span class="employee-name">${employee.name}</span>
-        <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${address}${afp} · ${health} · ${contract}<br>${money(employee.salary)} · Locomoción ${money(employee.transportAllowance)} · Colación ${money(employee.mealAllowance)}</span>
+        <span class="employee-meta">${employee.rut} · ${employee.role} · ${employee.department}<br>${contact ? `${contact}<br>` : ""}${address}${bank ? `Depósito: ${bank}<br>` : ""}${afp} · ${health} · ${contract}<br>${money(employee.salary)} · Vacaciones ${Number(employee.vacationDays || 0).toLocaleString("es-CL")} día(s) · Locomoción ${money(employee.transportAllowance)} · Colación ${money(employee.mealAllowance)}</span>
+        ${history}
       </div>
       <div class="item-actions" ${isAdmin() ? "" : "hidden"}>
         <button class="mini-button" type="button" title="Editar" aria-label="Editar ${employee.name}" data-edit="${employee.id}">✎</button>
@@ -703,10 +761,38 @@ function renderPayrollDefaults() {
   if (!els.payrollMonth.value) {
     els.payrollMonth.value = new Date().toISOString().slice(0, 7);
   }
+  renderOvertimeNote();
 }
 
 function safeAmount(selector) {
   return Number(document.querySelector(selector)?.value || 0);
+}
+
+function selectedPayrollEmployee() {
+  const employees = visibleEmployees();
+  return employees.find((item) => item.id === els.payrollEmployee.value) || employees[0] || null;
+}
+
+function overtimeAmount(employee, hours, multiplier) {
+  const baseSalary = Number(els.payrollTaxable.value || employee?.salary || 0);
+  const hourlyRate = baseSalary / 180;
+  return Math.round(hourlyRate * Number(hours || 0) * Number(multiplier || 1.5));
+}
+
+function renderOvertimeNote() {
+  if (!els.overtimeCalculationNote) return;
+  const employee = selectedPayrollEmployee();
+  const baseSalary = Number(els.payrollTaxable.value || employee?.salary || 0);
+  const hourlyRate = Math.round(baseSalary / 180);
+  els.overtimeCalculationNote.textContent = `Valor hora base estimado: ${money(hourlyRate)}. Se calcula sobre sueldo base / 180 horas.`;
+}
+
+function applyOvertimeCalculation() {
+  const employee = selectedPayrollEmployee();
+  if (!employee) return;
+  const amount = overtimeAmount(employee, els.payrollOvertimeHours.value, els.payrollOvertimeMultiplier.value);
+  els.payrollOvertime.value = amount;
+  renderOvertimeNote();
 }
 
 function calculateIncomeTax(taxableBase) {
@@ -788,6 +874,25 @@ function showCertificate(id) {
   const certificate = state.certificates.find((item) => item.id === id);
   if (!certificate) return;
   els.certificatePreview.innerHTML = certificateDocument(certificate);
+  setView("certificates");
+}
+
+async function persistEmployee(employee) {
+  if (!state.remoteReady) return employee;
+  let { data, error } = await supabaseClient.from("employees").update(toEmployeeRow(employee)).eq("id", employee.id).select().single();
+  if (error && /column|schema cache/i.test(error.message || "")) {
+    ({ data, error } = await supabaseClient.from("employees").update(toLegacyEmployeeRow(employee)).eq("id", employee.id).select().single());
+  }
+  if (error) throw error;
+  const savedEmployee = dbEmployee(data);
+  return {
+    ...employee,
+    ...savedEmployee,
+    address: savedEmployee.address || employee.address,
+    bankName: savedEmployee.bankName || employee.bankName,
+    bankAccountType: savedEmployee.bankAccountType || employee.bankAccountType,
+    bankAccountNumber: savedEmployee.bankAccountNumber || employee.bankAccountNumber,
+  };
 }
 
 async function submitEmployee(event) {
@@ -804,6 +909,9 @@ async function submitEmployee(event) {
     email: form.get("email").trim(),
     phone: form.get("phone").trim(),
     address: form.get("address").trim(),
+    bankName: form.get("bankName").trim(),
+    bankAccountType: form.get("bankAccountType"),
+    bankAccountNumber: form.get("bankAccountNumber").trim(),
     afp: form.get("afp"),
     healthProvider: form.get("healthProvider"),
     healthPlanAmount: Number(form.get("healthPlanAmount")),
@@ -870,6 +978,9 @@ function editEmployee(id) {
   document.querySelector("#employeeEmail").value = employee.email || "";
   document.querySelector("#employeePhone").value = employee.phone || "";
   document.querySelector("#employeeAddress").value = employee.address || "";
+  document.querySelector("#employeeBankName").value = employee.bankName || "";
+  document.querySelector("#employeeBankAccountType").value = employee.bankAccountType || "";
+  document.querySelector("#employeeBankAccountNumber").value = employee.bankAccountNumber || "";
   document.querySelector("#employeeAfp").value = employee.afp || "modelo";
   document.querySelector("#employeeHealthProvider").value = employee.healthProvider || "fonasa";
   document.querySelector("#employeeHealthPlanAmount").value = employee.healthPlanAmount || 0;
@@ -918,6 +1029,9 @@ function resetEmployeeForm() {
   document.querySelector("#employeeHealthProvider").value = "fonasa";
   document.querySelector("#employeeHealthPlanAmount").value = 0;
   document.querySelector("#employeeAddress").value = "";
+  document.querySelector("#employeeBankName").value = "";
+  document.querySelector("#employeeBankAccountType").value = "";
+  document.querySelector("#employeeBankAccountNumber").value = "";
   document.querySelector("#employeeContractType").value = "indefinite";
   document.querySelector("#employeeContractEndDate").value = "";
   document.querySelector("#employeeTransportAllowance").value = 0;
@@ -1164,34 +1278,56 @@ async function submitCertificate(event) {
   if (!requireSignedIn() || !requireAdmin()) return;
   const employee = state.employees.find((item) => item.id === els.certificateEmployee.value);
   if (!employee) return;
+  const type = document.querySelector("#certificateType").value;
+  const start = document.querySelector("#certificateStart").value;
+  const end = document.querySelector("#certificateEnd").value;
+  if (new Date(`${start}T12:00:00`) > new Date(`${end}T12:00:00`)) {
+    alert("La fecha de inicio no puede ser posterior a la fecha de término.");
+    return;
+  }
+  const vacationDays = type === "vacaciones" ? businessDaysBetween(start, end) : 0;
+  if (vacationDays > Number(employee.vacationDays || 0)) {
+    const confirmed = window.confirm(`El certificado descuenta ${vacationDays} día(s), pero ${employee.name} tiene ${Number(employee.vacationDays || 0).toLocaleString("es-CL")} disponible(s). ¿Guardar de todos modos?`);
+    if (!confirmed) return;
+  }
 
   const certificate = {
     id: uid("cert"),
-    type: document.querySelector("#certificateType").value,
+    type,
     employeeId: employee.id,
-    start: document.querySelector("#certificateStart").value,
-    end: document.querySelector("#certificateEnd").value,
+    start,
+    end,
     notes: document.querySelector("#certificateNotes").value.trim(),
+    days: vacationDays,
     createdAt: new Date().toISOString(),
   };
 
   try {
+    let savedCertificate = certificate;
     if (state.remoteReady) {
       const { data, error } = await supabaseClient.from("certificates").insert(toCertificateRow(certificate)).select().single();
       if (error) throw error;
-      state.certificates.unshift(dbCertificate(data));
-      els.certificatePreview.innerHTML = certificateDocument(dbCertificate(data));
-    } else {
-      state.certificates.unshift(certificate);
-      els.certificatePreview.innerHTML = certificateDocument(certificate);
+      savedCertificate = { ...dbCertificate(data), days: vacationDays };
     }
-    renderMetrics();
-    renderEmployeeOptions();
-    renderPayrollDefaults();
-    renderPayrolls();
+
+    if (type === "vacaciones" && vacationDays > 0) {
+      const updatedEmployee = {
+        ...employee,
+        vacationDays: Math.max(Number(employee.vacationDays || 0) - vacationDays, 0),
+      };
+      const persistedEmployee = await persistEmployee(updatedEmployee);
+      const index = state.employees.findIndex((item) => item.id === employee.id);
+      if (index >= 0) state.employees[index] = persistedEmployee;
+    }
+
+    state.certificates.unshift(savedCertificate);
+    els.certificatePreview.innerHTML = certificateDocument(savedCertificate);
+    els.certificateForm.reset();
+    renderAll();
+    setView("employees");
     saveLocalState();
   } catch (error) {
-    alert(`No se pudo emitir el certificado: ${error.message}`);
+    alert(`No se pudo guardar el certificado: ${error.message}`);
   }
 }
 
@@ -1199,12 +1335,14 @@ function certificateDocument(certificate) {
   const employee = state.employees.find((item) => item.id === certificate.employeeId);
   const label = certificate.type === "vacaciones" ? "vacaciones" : "permiso laboral";
   const title = certificate.type === "vacaciones" ? "Certificado de vacaciones" : "Certificado de permiso";
+  const days = certificate.type === "vacaciones" ? certificate.days || businessDaysBetween(certificate.start, certificate.end) : 0;
 
   return `
     <h3>${title}</h3>
     <p>Se certifica que <strong>${employee?.name || "Empleado"}</strong>, RUT / ID <strong>${employee?.rut || "No disponible"}</strong>, quien se desempeña como <strong>${employee?.role || "No disponible"}</strong> en el área <strong>${employee?.department || "No disponible"}</strong>, cuenta con autorización para hacer uso de ${label}.</p>
     <p><strong>Desde:</strong> ${readableDate(certificate.start)}</p>
     <p><strong>Hasta:</strong> ${readableDate(certificate.end)}</p>
+    ${days ? `<p><strong>Días hábiles descontados:</strong> ${days}</p>` : ""}
     <p><strong>Fecha de emisión:</strong> ${readableDate(new Date().toISOString().slice(0, 10))}</p>
     ${certificate.notes ? `<p><strong>Observación:</strong> ${certificate.notes}</p>` : ""}
     <div class="signature">Firma Recursos Humanos</div>
@@ -1223,6 +1361,9 @@ async function seedData() {
       email: "camila@empresa.cl",
       phone: "+56 9 1234 5678",
       address: "Av. Providencia 1234, Santiago",
+      bankName: "BancoEstado",
+      bankAccountType: "cuenta-rut",
+      bankAccountNumber: "12345678",
       afp: "modelo",
       healthProvider: "fonasa",
       healthPlanAmount: 0,
@@ -1247,6 +1388,9 @@ async function seedData() {
       email: "matias@empresa.cl",
       phone: "+56 9 8765 4321",
       address: "Los Leones 845, Providencia",
+      bankName: "Banco de Chile",
+      bankAccountType: "corriente",
+      bankAccountNumber: "0012345678",
       afp: "capital",
       healthProvider: "isapre",
       healthPlanAmount: 120000,
@@ -1271,6 +1415,9 @@ async function seedData() {
       email: "daniela@empresa.cl",
       phone: "+56 9 2222 3333",
       address: "Brasil 210, Valparaíso",
+      bankName: "Santander",
+      bankAccountType: "vista",
+      bankAccountNumber: "987654321",
       afp: "uno",
       healthProvider: "fonasa",
       healthPlanAmount: 0,
@@ -1415,7 +1562,12 @@ els.payrollEmployee.addEventListener("change", () => {
   delete els.payrollPreview.dataset.payrollId;
   renderPayrollDefaults();
   renderPayrolls();
+  applyOvertimeCalculation();
 });
+els.payrollTaxable.addEventListener("input", renderOvertimeNote);
+els.payrollOvertimeHours.addEventListener("input", applyOvertimeCalculation);
+els.payrollOvertimeMultiplier.addEventListener("change", applyOvertimeCalculation);
+els.calculateOvertimeBtn.addEventListener("click", applyOvertimeCalculation);
 els.payrollForm.addEventListener("submit", submitPayroll);
 els.certificateForm.addEventListener("submit", submitCertificate);
 els.seedDataBtn.addEventListener("click", seedData);
@@ -1430,10 +1582,13 @@ els.operationalAlerts?.addEventListener("click", (event) => {
 });
 
 els.employeeList.addEventListener("click", (event) => {
-  const editId = event.target.dataset.edit;
-  const deleteId = event.target.dataset.delete;
+  const target = event.target.closest("[data-edit], [data-delete], [data-view-certificate]");
+  const editId = target?.dataset.edit;
+  const deleteId = target?.dataset.delete;
+  const certificateId = target?.dataset.viewCertificate;
   if (editId) editEmployee(editId);
   if (deleteId) deleteEmployee(deleteId);
+  if (certificateId) showCertificate(certificateId);
 });
 
 els.payrollList.addEventListener("click", (event) => {

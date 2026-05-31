@@ -645,6 +645,66 @@ tbody tr:nth-child(even) {
   gap: 14px;
 }
 
+.collapsible-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.collapsible-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-panel summary strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--title-font);
+  font-size: 1.08rem;
+}
+
+.summary-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--accent-strong);
+  transition: transform 180ms ease;
+}
+
+.collapsible-panel[open] .summary-icon {
+  transform: rotate(180deg);
+}
+
+.overtime-calculator {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 0.7fr) minmax(140px, 0.7fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(42, 157, 157, 0.08);
+}
+
+.overtime-calculator strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--title-font);
+}
+
+.overtime-note {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
 label {
   display: grid;
   gap: 7px;
@@ -771,6 +831,47 @@ textarea:focus {
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.35;
+}
+
+.employee-history {
+  margin-top: 12px;
+}
+
+.employee-history summary,
+.employee-history-empty {
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.employee-history summary {
+  cursor: pointer;
+}
+
+.history-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.history-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  text-align: left;
+}
+
+.history-item span {
+  font-weight: 800;
+}
+
+.history-item small {
+  color: var(--muted);
 }
 
 .item-actions {
@@ -1141,7 +1242,8 @@ textarea:focus {
   .operations-grid,
   .dashboard-layout,
   .split-layout,
-  .form-grid {
+  .form-grid,
+  .overtime-calculator {
     grid-template-columns: 1fr;
   }
 
