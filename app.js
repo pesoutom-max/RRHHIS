@@ -366,6 +366,25 @@ function toEmployeeRow(employee) {
   };
 }
 
+function hasNewEmployeeData(employee) {
+  return Boolean(
+    employee.address ||
+      employee.bankName ||
+      employee.bankAccountType ||
+      employee.bankAccountNumber ||
+      employee.afp ||
+      employee.healthProvider ||
+      employee.healthPlanAmount ||
+      employee.contractType ||
+      employee.contractEndDate ||
+      employee.transportAllowance ||
+      employee.mealAllowance ||
+      employee.emergencyName ||
+      employee.emergencyRelationship ||
+      employee.emergencyPhone,
+  );
+}
+
 function toLegacyEmployeeRow(employee) {
   return {
     company_id: employee.companyId || state.company?.id || null,
@@ -1078,10 +1097,15 @@ async function deleteCertificate(id) {
 async function persistEmployee(employee) {
   if (!state.remoteReady) return employee;
   let { data, error } = await supabaseClient.from("employees").update(toEmployeeRow(employee)).eq("id", employee.id).select().single();
+  let usedLegacyEmployeeSave = false;
   if (error && /column|schema cache/i.test(error.message || "")) {
+    usedLegacyEmployeeSave = true;
     ({ data, error } = await supabaseClient.from("employees").update(toLegacyEmployeeRow(employee)).eq("id", employee.id).select().single());
   }
   if (error) throw error;
+  if (usedLegacyEmployeeSave && hasNewEmployeeData(employee)) {
+    alert("Empleado actualizado, pero algunos datos nuevos no quedarán persistidos en Supabase hasta ejecutar la actualización SQL pendiente.");
+  }
   const savedEmployee = dbEmployee(data);
   return {
     ...employee,
@@ -1130,11 +1154,13 @@ async function submitEmployee(event) {
 
   try {
     if (state.remoteReady) {
+      let usedLegacyEmployeeSave = false;
       let query = id
         ? supabaseClient.from("employees").update(toEmployeeRow(employee)).eq("id", id).select().single()
         : supabaseClient.from("employees").insert(toEmployeeRow(employee)).select().single();
       let { data, error } = await query;
       if (error && /column|schema cache/i.test(error.message || "")) {
+        usedLegacyEmployeeSave = true;
         query = id
           ? supabaseClient.from("employees").update(toLegacyEmployeeRow(employee)).eq("id", id).select().single()
           : supabaseClient.from("employees").insert(toLegacyEmployeeRow(employee)).select().single();
@@ -1143,6 +1169,9 @@ async function submitEmployee(event) {
       if (error) throw error;
       employee.id = data.id;
       employee.companyId = data.company_id;
+      if (usedLegacyEmployeeSave && hasNewEmployeeData(employee)) {
+        alert("Empleado guardado, pero algunos datos nuevos no quedarán persistidos en Supabase hasta ejecutar la actualización SQL pendiente.");
+      }
     }
 
     const index = state.employees.findIndex((item) => item.id === employee.id);
@@ -1661,10 +1690,15 @@ async function seedData() {
   try {
     if (state.remoteReady) {
       let { data, error } = await supabaseClient.from("employees").insert(examples.map(toEmployeeRow)).select();
+      let usedLegacyEmployeeSave = false;
       if (error && /column|schema cache/i.test(error.message || "")) {
+        usedLegacyEmployeeSave = true;
         ({ data, error } = await supabaseClient.from("employees").insert(examples.map(toLegacyEmployeeRow)).select());
       }
       if (error) throw error;
+      if (usedLegacyEmployeeSave) {
+        alert("Datos de ejemplo cargados, pero los campos nuevos no quedarán persistidos en Supabase hasta ejecutar la actualización SQL pendiente.");
+      }
       state.employees.unshift(...data.map(dbEmployee));
     } else {
       state.employees.unshift(...examples.map((employee) => ({ ...employee, id: uid("emp") })));

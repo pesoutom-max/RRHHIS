@@ -859,9 +859,9 @@ textarea:focus {
 .employee-item,
 .record-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
-  align-items: center;
+  align-items: start;
   padding: 13px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -912,9 +912,9 @@ textarea:focus {
 
 .history-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
+  grid-template-columns: minmax(220px, 1fr);
+  gap: 10px;
+  align-items: start;
 }
 
 .history-item {
@@ -941,14 +941,14 @@ textarea:focus {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .history-actions {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .mini-button,
@@ -964,6 +964,11 @@ textarea:focus {
   color: var(--ink);
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.employee-item > .item-actions {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
 
 .mini-button:hover,

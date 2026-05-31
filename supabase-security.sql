@@ -54,6 +54,10 @@ alter table public.payrolls
   add column if not exists employer_social_security integer not null default 0,
   add column if not exists employer_total integer not null default 0;
 
+alter table public.companies enable row level security;
+alter table public.employees enable row level security;
+alter table public.payrolls enable row level security;
+alter table public.certificates enable row level security;
 alter table public.user_profiles enable row level security;
 
 create or replace function public.current_profile_role()
