@@ -1288,14 +1288,17 @@ function calculatePayroll(values) {
   const bonus = Number(values.bonus) || 0;
   const overtime = Number(values.overtime) || 0;
   const familyAllowance = Number(values.familyAllowance) || 0;
-  const transport = Number(values.transport ?? employee?.transportAllowance) || 0;
-  const meal = Number(values.meal ?? employee?.mealAllowance) || 0;
-  const advance = Number(values.advance) || 0;
-  const loan = Number(values.loan) || 0;
-  const thirdParty = Number(values.thirdParty) || 0;
-  const otherDeductions = Number(values.otherDeductions) || 0;
   const workedDays = Number(values.workedDays) || 30;
+
+  // Montos base desde el empleado o valores ingresados
+  const baseTransport = Number(values.transport ?? employee?.transportAllowance) || 0;
+  const baseMeal = Number(values.meal ?? employee?.mealAllowance) || 0;
+
+  // Cálculos proporcionales
   const proportionalTaxable = Math.round((taxable / 30) * workedDays);
+  const transport = Math.round((baseTransport / 30) * workedDays);
+  const meal = Math.round((baseMeal / 30) * workedDays);
+
   const totalTaxable = proportionalTaxable + bonus + overtime;
   const cappedTaxable = Math.min(totalTaxable, PAYROLL_INDICATORS.taxableCap);
   const cappedUnemployment = Math.min(totalTaxable, PAYROLL_INDICATORS.unemploymentCap);
@@ -1306,6 +1309,10 @@ function calculatePayroll(values) {
   const totalLegalDeductions = pension + health + unemployment;
   const incomeTaxBase = Math.max(totalTaxable - totalLegalDeductions, 0);
   const incomeTax = calculateIncomeTax(incomeTaxBase);
+  const advance = Number(values.advance) || 0;
+  const loan = Number(values.loan) || 0;
+  const thirdParty = Number(values.thirdParty) || 0;
+  const otherDeductions = Number(values.otherDeductions) || 0;
   const totalOtherDeductions = advance + loan + thirdParty + otherDeductions;
   const totalDeductions = totalLegalDeductions + incomeTax + totalOtherDeductions;
   const nonTaxable = familyAllowance + transport + meal;
@@ -1319,6 +1326,8 @@ function calculatePayroll(values) {
 
   return {
     proportionalTaxable,
+    transport,
+    meal,
     totalTaxable,
     cappedTaxable,
     nonTaxable,
